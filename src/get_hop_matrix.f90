@@ -27,7 +27,6 @@ Module param
   Program get_hop_matrix
     Use param
     Implicit Double Precision (A-H, O-Z)
-    Logical exist1
   
     filename = '../data/grap.dat'
   ! constants !!!
