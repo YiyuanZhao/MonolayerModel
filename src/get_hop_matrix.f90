@@ -136,7 +136,7 @@ Module param
   Subroutine cal_hk_allzone()
     Use param
     ! Implicit Double Precision (A-H, O-Z)
-    Real *8 wk(3), xk, yk, dkx, dky, a
+    Real *8 wk(3), xk, yk, a, dkx, dky, eval(nwann)
     Complex *16, Allocatable :: hk(:, :, :, :)
     Complex *16 ham_work(nwann, nwann), hak(nwann, nwann)
     a = 2.46D0/sqrt(3.0D0) !A value: relaxed C-C or B
@@ -146,9 +146,7 @@ Module param
     
   !********one sixth Brilliouin zone****************************************
     If (.Not. allocated(hk)) Allocate (hk(nwann,nwann,1:tnky,1:(nkx+1)))
-    hk =  dcmplx(0.0D0, 0.0D0)
     Open (11, File='../data/HK.dat')
-    Open (18, File='../data/nk.dat')
     Open (17, File='../data/kx+ky.dat')
     nksum = 0
     Do kx = 1, nkx + 1
@@ -176,7 +174,6 @@ Module param
     Write (11, *) 'The-End!'
     Write (*, *) 'total k points', nksum
     Close (17)
-    Close (18)
     Close (11)
     Return
   End Subroutine cal_hk_allzone
@@ -195,12 +192,11 @@ Module param
     Complex *16 hamvec(nwann, nwann), ham_r(nwann, nwann, nrdg)
     Real *8 a1(3), a2(3), a3(3)
     Real *8 b1(3), b2(3), b3(3)
-    Real *8 temp(3), newk(3)
+    Real *8 temp(3), newk(3), pi, twopi
     Integer rnspac(3, nrdg)
     Character (30) ch_state
     Double precision dotproduct
-    Real *8 pi, twopi
-    
+  
     pi = dasin(1.0D0)*2.0D0
     twopi = 2.0D0*pi
   !     relaxed lattice constant need to modify!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -336,12 +332,10 @@ Module param
     End Do
   ! to diagonalize hamk_work !
     ch_state = 'V'
-  
     Call cal_eigenvs(nwann, ham_work, eig, ch_state)
   
     Do lorb = 1, nwann
       Do korb = 1, nwann
-        hamvec(korb, lorb) = dcmplx(0.0D0, 0.0D0)
         hamvec(korb, lorb) = ham_work(korb, lorb)
       End Do
     End Do
@@ -463,9 +457,10 @@ Module param
     Parameter (lwmax=1000)
     Character (1) ch_state
     Complex *16 ham(nsite, nsite), evec(nsite, nsite)
-    Dimension eval(nsite)
-    Dimension rwork(3*nsite-2)
+    ! Dimension eval(nsite)
+    Real *8 rwork(3*nsite-2)
     Complex (Kind=8) work(lwmax)
+    Real *8 eval(nsite)
   !!!!!!!!!!!!!!!! use lapack !!!!!!!!!!!!!!!!!!!!!!!!!
   !Compute all of the eigenvalues and eigenvectors of a complex Hermitian matrix.
   !     Query the optimal workspace.
