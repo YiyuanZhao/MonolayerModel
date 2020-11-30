@@ -3,7 +3,7 @@
 ! the main parameters used in the calculations !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !************************************************************************!!!
 Module param
-    Implicit Double Precision (A-H, O-Z)
+    ! Implicit Double Precision (A-H, O-Z)
     Integer nwann, nhalfwan, nrdg
     Complex *16, Allocatable :: ham_r(:, :, :)
     Integer, Allocatable :: rnspac(:, :)
@@ -26,7 +26,7 @@ Module param
   !************************************************************************!!!
   Program get_hop_matrix
     Use param
-    Implicit Double Precision (A-H, O-Z)
+    ! Implicit Double Precision (A-H, O-Z)
   
     filename = '../data/grap.dat'
   ! constants !!!
@@ -52,7 +52,7 @@ Module param
   !************************************************************************!!!
   Subroutine read_hr()
     Use param
-    Implicit Double Precision (A-H, O-Z)
+    ! Implicit Double Precision (A-H, O-Z)
     Character (30) ch
     Integer, Allocatable :: ndegen(:)
     Open (10, File=filename)
@@ -92,7 +92,7 @@ Module param
   !************************************************************************!!!
   Subroutine cal_origin_band(bandkpath, ktot)
     Use param
-    Implicit Double Precision (A-H, O-Z)
+    ! Implicit Double Precision (A-H, O-Z)
     Real *8, Allocatable :: eigenval(:, :)
     Real *8 eval(nwann), bandkpath(3, ktot)
     Complex *16 ham_work(nwann, nwann), hak(nwann, nwann)
@@ -135,8 +135,8 @@ Module param
   !**********************************************************************************!!!
   Subroutine cal_hk_allzone()
     Use param
-    Implicit Double Precision (A-H, O-Z)
-    Real *8 wk(3), xk, yk, dkx, dky
+    ! Implicit Double Precision (A-H, O-Z)
+    Real *8 wk(3), xk, yk, dkx, dky, a
     Complex *16, Allocatable :: hk(:, :, :, :)
     Complex *16 ham_work(nwann, nwann), hak(nwann, nwann)
     a = 2.46D0/sqrt(3.0D0) !A value: relaxed C-C or B
@@ -187,18 +187,19 @@ Module param
   !**********************************************************************************!!!
   !**********************************************************************************!!!
   Subroutine cal_spectrum(wk, hak, hamvec, eig, nwann, ham_r, rnspac, nrdg)
-    Implicit Double Precision (A-H, O-Z)
-    Real *8 wk(3), rn(3)
+    ! Implicit Double Precision (A-H, O-Z)
+    Real *8 wk(3), rn(3), eig(nwann)
     Complex *16 structphase
     Complex *16 hamk_wk(nwann, nwann), ham_work(nwann, nwann)
     Complex *16 hak(nwann, nwann)
     Complex *16 hamvec(nwann, nwann), ham_r(nwann, nwann, nrdg)
-    Real *8 eigval(nwann), a1(3), a2(3), a3(3)
+    Real *8 a1(3), a2(3), a3(3)
     Real *8 b1(3), b2(3), b3(3)
     Real *8 temp(3), newk(3)
     Integer rnspac(3, nrdg)
     Character (30) ch_state
-  
+    Double precision dotproduct
+    Real *8 pi, twopi
     
     pi = dasin(1.0D0)*2.0D0
     twopi = 2.0D0*pi
@@ -364,7 +365,7 @@ Module param
   !************************************************************************!!!
   Subroutine generat_k()
     Use param
-    Implicit Double Precision (A-H, O-Z)
+    ! Implicit Double Precision (A-H, O-Z)
   !	parameter(A=1.43590)
     Parameter (nsubr1=85)
     Parameter (nsubr2=42)
@@ -374,6 +375,7 @@ Module param
   ! original X point
     Real *8 dk(3)
     Real *8 dm(3)
+    Real *8 a, stepkx, stepky, stepkz, xk, yk, zk
     a = 2.46D0/sqrt(3.0D0) !A value: relaxed C-C or 
     pi = dasin(1.0D0)*2.0D0
   
@@ -457,7 +459,7 @@ Module param
   !************************************************************************!!!
   !!!!!!!!!!!!!!!!!!!!!use lapack!!!!!!!!!!!!!!!!!!!!!!!!
   Subroutine cal_eigenvs(nsite, ham, eval, ch_state)
-    Implicit Real (8)(A-H, O-Z)
+    ! Implicit Real (8)(A-H, O-Z)
     Parameter (lwmax=1000)
     Character (1) ch_state
     Complex *16 ham(nsite, nsite), evec(nsite, nsite)
@@ -515,7 +517,7 @@ Module param
   !************************************************************************!!!
   !************************************************************************!!!
   Subroutine typetransform(kz, cfname, casename)
-    Implicit Double Precision (A-H, O-Z)
+    ! Implicit Double Precision (A-H, O-Z)
     Integer iu, id, ih, it
     Character (256) chunit, chdecd, chhund, cfname, casename
   
