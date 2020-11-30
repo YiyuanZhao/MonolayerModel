@@ -463,7 +463,7 @@ Module param
     Complex *16 ham(nsite, nsite), evec(nsite, nsite)
     Dimension eval(nsite)
     Dimension rwork(3*nsite-2)
-    Complex (Kind=8) work(lwmax), c_check
+    Complex (Kind=8) work(lwmax)
   !!!!!!!!!!!!!!!! use lapack !!!!!!!!!!!!!!!!!!!!!!!!!
   !Compute all of the eigenvalues and eigenvectors of a complex Hermitian matrix.
   !     Query the optimal workspace.
