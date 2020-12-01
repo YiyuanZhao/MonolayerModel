@@ -8,7 +8,7 @@ Module param
     Complex *16, Allocatable :: ham_r(:, :, :)
     Integer, Allocatable :: rnspac(:, :)
     Character (256) filename, casename
-    Integer korigin, kwien2k, korigextend
+    Integer korigin, kwien2k, korigextend, kwork
     Real *8, Allocatable :: bandklist(:, :)
     Real *8, Allocatable :: bandklist_extend(:, :)
   ! the fractional translation vector !!!
@@ -18,7 +18,7 @@ Module param
   ! band structure in full brillouin zone !!!
   !	integer   NKX,NKY,NKZ
     Integer nkx, nky, dnky, tnky
-    Parameter (nkx=1201, nky=600, dnky=1201, tnky=dnky+nky)
+    Parameter (nkx=151, nky=75, dnky=151, tnky=dnky+nky)
     Real *8 pi, twopi
     Real *8 veclat(3)
   End Module param
@@ -26,8 +26,14 @@ Module param
   !************************************************************************!!!
   Program get_hop_matrix
     Use param
-    ! Implicit Double Precision (A-H, O-Z)
-  
+    Implicit None
+  ! Timer Settings
+    real(kind=4)    :: t1,t2
+    character(len=10)   :: time1,time2
+    character(len=8)    :: thedate
+    call date_and_time(thedate,time1)
+
+  !  Timer Settings End
     filename = '../data/grap.dat'
   ! constants !!!
     pi = dasin(1.0D0)*2.0D0
@@ -43,7 +49,12 @@ Module param
     Call cal_origin_band(bandklist, kwork)
   !
     Call cal_hk_allzone()
-  
+    ! Timer Settings Begin
+    call date_and_time(thedate,time2)
+    read(time1,*) t1
+    read(time2,*) t2
+    write(*,*) 'time:', t2-t1
+    ! Timer Settings End
   End Program get_hop_matrix
   !************************************************************************!!!
   !************************************************************************!!!
@@ -289,7 +300,7 @@ Module param
   ! the K vector using 2pi/a , 2pi/b and 2pi/c as unit !
   ! the R vector using a , b and c as unit !!!!!!!!!!!!!
   
-      dotproduct = dotproduct
+      ! dotproduct = dotproduct
       structphase = dcmplx(dcos(dotproduct), dsin(dotproduct))
   
   ! for original part alpha !
@@ -312,33 +323,37 @@ Module param
       End If
     End Do
   ! to get ham_work !!!
+
+    ! ham_work = dcmplx(0.0D0, 0.0D0)
+    ! ! Do iorb = 1, nwann
+    ! !   Do jorb = 1, nwann
+    ! !     ham_work(jorb, iorb) = dcmplx(0.0D0, 0.0D0)
+    ! !   End Do
+    ! ! End Do
   
-    Do iorb = 1, nwann
-      Do jorb = 1, nwann
-        ham_work(jorb, iorb) = dcmplx(0.0D0, 0.0D0)
-      End Do
-    End Do
-  
-    Do iorb = 1, nwann
-      Do jorb = 1, nwann
-        ham_work(jorb, iorb) = ham_work(jorb, iorb) + hamk_wk(jorb, iorb)
-      End Do
-    End Do
-  !
-    Do iorb = 1, nwann
-      Do jorb = 1, nwann
-        hak(jorb, iorb) = ham_work(jorb, iorb)
-      End Do
-    End Do
+    !  Do iorb = 1, nwann
+    !   Do jorb = 1, nwann
+    !     ham_work(jorb, iorb) = ham_work(jorb, iorb) + hamk_wk(jorb, iorb)
+    !   End Do
+    ! End Do
+    ham_work = hamk_wk;
+    hak = ham_work;
+
+    ! Do iorb = 1, nwann
+    !   Do jorb = 1, nwann
+    !     hak(jorb, iorb) = ham_work(jorb, iorb)
+    !   End Do
+    ! End Do
   ! to diagonalize hamk_work !
     ch_state = 'V'
     Call cal_eigenvs(nwann, ham_work, eig, ch_state)
-  
-    Do lorb = 1, nwann
-      Do korb = 1, nwann
-        hamvec(korb, lorb) = ham_work(korb, lorb)
-      End Do
-    End Do
+
+    hamvec = ham_work;
+    ! Do lorb = 1, nwann
+    !   Do korb = 1, nwann
+    !     hamvec(korb, lorb) = ham_work(korb, lorb)
+    !   End Do
+    ! End Do
   
     Return
   End Subroutine cal_spectrum
@@ -456,27 +471,34 @@ Module param
     ! Implicit Real (8)(A-H, O-Z)
     Parameter (lwmax=1000)
     Character (1) ch_state
+    Character UPLO
     Complex *16 ham(nsite, nsite), evec(nsite, nsite)
     ! Dimension eval(nsite)
     Real *8 rwork(3*nsite-2)
     Complex (Kind=8) work(lwmax)
     Real *8 eval(nsite)
+    Integer lwork, NB
   !!!!!!!!!!!!!!!! use lapack !!!!!!!!!!!!!!!!!!!!!!!!!
   !Compute all of the eigenvalues and eigenvectors of a complex Hermitian matrix.
   !     Query the optimal workspace.
     If (ch_state=='V') Then
-      Do i_site = 1, nsite
-        Do j_site = 1, nsite
-          evec(j_site, i_site) = ham(j_site, i_site)
-        End Do
-      End Do
-      lwork = -1
-      Call zheev('V', 'U', nsite, ham, nsite, eval, work, lwork, rwork, info)
-      Do i_site = 1, nsite
-        Do j_site = 1, nsite
-          ham(j_site, i_site) = evec(j_site, i_site)
-        End Do
-      End Do
+      ! evec = ham;
+      ! Do i_site = 1, nsite
+      !   Do j_site = 1, nsite
+      !     evec(j_site, i_site) = ham(j_site, i_site)
+      !   End Do
+      ! End Do
+      ! lwork = -1
+      ! Call zheev('V', 'U', nsite, ham, nsite, eval, work, lwork, rwork, info)
+      ! ham = evec;
+      ! Do i_site = 1, nsite
+      !   Do j_site = 1, nsite
+      !     ham(j_site, i_site) = evec(j_site, i_site)
+      !   End Do
+      ! End Do
+      NB = ILAENV( 1, 'ZHETRD', UPLO, nsite, -1, -1, -1 )
+      LWKOPT = MAX( 1, ( NB+1 )*nsite )
+      WORK( 1 ) = LWKOPT
       lwork = min(lwmax, int(work(1)))
   !      Solve eigenproblem.
       Call zheev('V', 'U', nsite, ham, nsite, eval, work, lwork, rwork, info)
@@ -486,6 +508,7 @@ Module param
         Stop
       End If
     Else
+      evec = ham
       Do i_site = 1, nsite
         Do j_site = 1, nsite
           evec(j_site, i_site) = ham(j_site, i_site)
