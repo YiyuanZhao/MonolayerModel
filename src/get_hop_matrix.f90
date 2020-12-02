@@ -1,4 +1,3 @@
-!// ForQuill v1.01 Beta www.fcode.cn
 !************************************************************************!!!
 ! the main parameters used in the calculations !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !************************************************************************!!!
@@ -18,7 +17,7 @@ Module param
   ! band structure in full brillouin zone !!!
   !	integer   NKX,NKY,NKZ
     Integer nkx, nky, dnky, tnky
-    Parameter (nkx=151, nky=75, dnky=151, tnky=dnky+nky)
+    Parameter (nkx=1201, nky=600, dnky=1201, tnky=dnky+nky)
     Real *8 pi, twopi
     Real *8 veclat(3)
   End Module param
@@ -271,22 +270,6 @@ Module param
       Do jsit = 1, 3
         temp(jsit) = 0.0D0
       End Do
-  !
-  ! for B1
-  !					 do jsit=1,3
-  !						temp(jsit)=temp(jsit)+
-  !     $                               dble(wk(1))*B1(jsit)
-  !					 end do
-  ! for B2
-  !					 do jsit=1,3
-  !						temp(jsit)=temp(jsit)+
-  !     $                               dble(wk(2))*B2(jsit)
-  !					 end do
-  ! for B3
-  !					 do jsit=1,3
-  !						temp(jsit)=temp(jsit)+
-  !     $                               dble(wk(3))*B3(jsit)
-  !					 end do
   
       Do jsit = 1, 3
         newk(jsit) = temp(jsit) + wk(jsit)
@@ -324,37 +307,13 @@ Module param
     End Do
   ! to get ham_work !!!
 
-    ! ham_work = dcmplx(0.0D0, 0.0D0)
-    ! ! Do iorb = 1, nwann
-    ! !   Do jorb = 1, nwann
-    ! !     ham_work(jorb, iorb) = dcmplx(0.0D0, 0.0D0)
-    ! !   End Do
-    ! ! End Do
-  
-    !  Do iorb = 1, nwann
-    !   Do jorb = 1, nwann
-    !     ham_work(jorb, iorb) = ham_work(jorb, iorb) + hamk_wk(jorb, iorb)
-    !   End Do
-    ! End Do
     ham_work = hamk_wk;
     hak = ham_work;
 
-    ! Do iorb = 1, nwann
-    !   Do jorb = 1, nwann
-    !     hak(jorb, iorb) = ham_work(jorb, iorb)
-    !   End Do
-    ! End Do
   ! to diagonalize hamk_work !
     ch_state = 'V'
     Call cal_eigenvs(nwann, ham_work, eig, ch_state)
-
-    hamvec = ham_work;
-    ! Do lorb = 1, nwann
-    !   Do korb = 1, nwann
-    !     hamvec(korb, lorb) = ham_work(korb, lorb)
-    !   End Do
-    ! End Do
-  
+    hamvec = ham_work;  
     Return
   End Subroutine cal_spectrum
   !************************************************************************!!!
@@ -482,20 +441,6 @@ Module param
   !Compute all of the eigenvalues and eigenvectors of a complex Hermitian matrix.
   !     Query the optimal workspace.
     If (ch_state=='V') Then
-      ! evec = ham;
-      ! Do i_site = 1, nsite
-      !   Do j_site = 1, nsite
-      !     evec(j_site, i_site) = ham(j_site, i_site)
-      !   End Do
-      ! End Do
-      ! lwork = -1
-      ! Call zheev('V', 'U', nsite, ham, nsite, eval, work, lwork, rwork, info)
-      ! ham = evec;
-      ! Do i_site = 1, nsite
-      !   Do j_site = 1, nsite
-      !     ham(j_site, i_site) = evec(j_site, i_site)
-      !   End Do
-      ! End Do
       NB = ILAENV( 1, 'ZHETRD', UPLO, nsite, -1, -1, -1 )
       LWKOPT = MAX( 1, ( NB+1 )*nsite )
       WORK( 1 ) = LWKOPT
