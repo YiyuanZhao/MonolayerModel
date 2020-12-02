@@ -2,7 +2,6 @@
 ! the main parameters used in the calculations !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !************************************************************************!!!
 Module param
-    ! Implicit Double Precision (A-H, O-Z)
     Integer nwann, nhalfwan, nrdg
     Complex *16, Allocatable :: ham_r(:, :, :)
     Integer, Allocatable :: rnspac(:, :)
@@ -62,7 +61,6 @@ Module param
   !************************************************************************!!!
   Subroutine read_hr()
     Use param
-    ! Implicit Double Precision (A-H, O-Z)
     Character (30) ch
     Integer, Allocatable :: ndegen(:)
     Open (10, File=filename)
@@ -102,13 +100,11 @@ Module param
   !************************************************************************!!!
   Subroutine cal_origin_band(bandkpath, ktot)
     Use param
-    ! Implicit Double Precision (A-H, O-Z)
     Real *8, Allocatable :: eigenval(:, :)
     Real *8 eval(nwann), bandkpath(3, ktot)
     Complex *16 ham_work(nwann, nwann), hak(nwann, nwann)
     Real *8 wk(3)
-  
-  
+    
     If (.Not. allocated(eigenval)) Allocate (eigenval(nwann,ktot))
     ktotal = ktot
     Do kloop = 1, ktotal
@@ -151,10 +147,7 @@ Module param
     Complex *16 ham_work(nwann, nwann), hak(nwann, nwann)
     a = 2.46D0/sqrt(3.0D0) !A value: relaxed C-C or B
     pi = dasin(1.0D0)*2.0D0
-  !********one sixth Brilliouin zone****************************************
-    
-    
-  !********one sixth Brilliouin zone****************************************
+
     If (.Not. allocated(hk)) Allocate (hk(nwann,nwann,1:tnky,1:(nkx+1)))
     Open (11, File='../data/HK.dat')
     Open (17, File='../data/kx+ky.dat')
@@ -194,7 +187,6 @@ Module param
   !**********************************************************************************!!!
   !**********************************************************************************!!!
   Subroutine cal_spectrum(wk, hak, hamvec, eig, nwann, ham_r, rnspac, nrdg)
-    ! Implicit Double Precision (A-H, O-Z)
     Real *8 wk(3), rn(3), eig(nwann)
     Complex *16 structphase
     Complex *16 hamk_wk(nwann, nwann), ham_work(nwann, nwann)
@@ -282,8 +274,6 @@ Module param
   
   ! the K vector using 2pi/a , 2pi/b and 2pi/c as unit !
   ! the R vector using a , b and c as unit !!!!!!!!!!!!!
-  
-      ! dotproduct = dotproduct
       structphase = dcmplx(dcos(dotproduct), dsin(dotproduct))
   
   ! for original part alpha !
@@ -333,8 +323,6 @@ Module param
   !************************************************************************!!!
   Subroutine generat_k()
     Use param
-    ! Implicit Double Precision (A-H, O-Z)
-  !	parameter(A=1.43590)
     Parameter (nsubr1=85)
     Parameter (nsubr2=42)
     Parameter (nsubr3=73)
@@ -348,7 +336,6 @@ Module param
     pi = dasin(1.0D0)*2.0D0
   
   ! to determine korigin
-  
     dg(1) = 0.00D0
     dg(2) = 0.00D0
     dg(3) = 0.00D0
