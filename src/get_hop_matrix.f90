@@ -16,7 +16,8 @@ Module param
   ! band structure in full brillouin zone !!!
   !	integer   NKX,NKY,NKZ
     Integer nkx, nky, dnky, tnky
-    Parameter (nkx=1201, nky=600, dnky=1201, tnky=dnky+nky)
+    ! Parameter (nkx=1201, nky=600, dnky=1201, tnky=dnky+nky)
+    Parameter (nkx=151, nky=75, dnky=151, tnky=dnky+nky)
     Real *8 pi, twopi
     Real *8 veclat(3)
   End Module param
@@ -145,7 +146,7 @@ Module param
     Real *8 wk(3), xk, yk, a, dkx, dky, eval(nwann)
     Complex *16, Allocatable :: hk(:, :, :, :)
     Complex *16 ham_work(nwann, nwann), hak(nwann, nwann)
-    a = 2.46D0/sqrt(3.0D0) !A value: relaxed C-C or B
+    a = 3.329871249355699D0/sqrt(3.0D0) !A value: relaxed C-C or B
     pi = dasin(1.0D0)*2.0D0
 
     If (.Not. allocated(hk)) Allocate (hk(nwann,nwann,1:tnky,1:(nkx+1)))
@@ -202,29 +203,29 @@ Module param
     pi = dasin(1.0D0)*2.0D0
     twopi = 2.0D0*pi
   !     relaxed lattice constant need to modify!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    a1(1) = 2.1304225D0
-    a1(2) = -1.23D0
+    a1(1) = 3.329871249355699D0
+    a1(2) = 0.0D0
     a1(3) = 0.0D0
-  
-    a2(1) = 0.0D0
-    a2(2) = 2.46D0
+       
+    a2(1) = -1.664935624677850D0
+    a2(2) = 2.883753093273462D0
     a2(3) = 0.0D0
   
     a3(1) = 0.0D0
     a3(2) = 0.0D0
-    a3(3) = 20.3D0
-  
-    b1(1) = 0.469390463D0*twopi
-    b1(2) = 0.0D0
+    a3(3) = 23.118000039458281D0
+       
+    b1(1) = 1.886915390015553D0
+    b1(2) = 1.089411108363528D0
     b1(3) = 0.0D0
-  
-    b2(1) = 0.234695231D0*twopi
-    b2(2) = 0.406504065D0*twopi
+
+    b2(1) = 0.0D0
+    b2(2) = 2.178822216727055D0
     b2(3) = 0.0D0
-  
+
     b3(1) = 0.0D0
     b3(2) = 0.0D0
-    b3(3) = 0.0492610837D0*twopi
+    b3(3) = 0.271787580952302D0
   
   
     Do iorb = 1, nwann
@@ -323,16 +324,19 @@ Module param
   !************************************************************************!!!
   Subroutine generat_k()
     Use param
-    Parameter (nsubr1=85)
-    Parameter (nsubr2=42)
-    Parameter (nsubr3=73)
+    ! Parameter (nsubr1=85)
+    ! Parameter (nsubr2=42)
+    ! Parameter (nsubr3=73)
+    Parameter (nsubr1=255)
+    Parameter (nsubr2=126)
+    Parameter (nsubr3=219)
   ! original G point
     Real *8 dg(3)
   ! original X point
     Real *8 dk(3)
     Real *8 dm(3)
     Real *8 a, stepkx, stepky, stepkz, xk, yk, zk
-    a = 2.46D0/sqrt(3.0D0) !A value: relaxed C-C or 
+    a = 3.329871249355699D0/sqrt(3.0D0) !A value: relaxed C-C or 
     pi = dasin(1.0D0)*2.0D0
   
   ! to determine korigin
