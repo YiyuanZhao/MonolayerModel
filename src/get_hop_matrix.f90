@@ -16,10 +16,11 @@ Module param
   ! band structure in full brillouin zone !!!
   !	integer   NKX,NKY,NKZ
     Integer nkx, nky, dnky, tnky
-    ! Parameter (nkx=1201, nky=600, dnky=1201, tnky=dnky+nky)
-    Parameter (nkx=151, nky=75, dnky=151, tnky=dnky+nky)
+    Parameter (nkx=1201, nky=600, dnky=1201, tnky=dnky+nky)
+    ! Parameter (nkx=601, nky=300, dnky=601, tnky=dnky+nky)
     Real *8 pi, twopi
     Real *8 veclat(3)
+    Real *8, Parameter :: a = 3.329871249355699D0
   End Module param
   !************************************************************************!!!
   !************************************************************************!!!
@@ -47,7 +48,7 @@ Module param
     kwork = korigin
     Call cal_origin_band(bandklist, kwork)
   !
-    Call cal_hk_allzone()
+    ! Call cal_hk_allzone()
     ! Timer Settings Begin
     call date_and_time(thedate,time2)
     read(time1,*) t1
@@ -143,10 +144,9 @@ Module param
   Subroutine cal_hk_allzone()
     Use param
     ! Implicit Double Precision (A-H, O-Z)
-    Real *8 wk(3), xk, yk, a, dkx, dky, eval(nwann)
+    Real *8 wk(3), xk, yk, dkx, dky, eval(nwann)
     Complex *16, Allocatable :: hk(:, :, :, :)
     Complex *16 ham_work(nwann, nwann), hak(nwann, nwann)
-    a = 3.329871249355699D0/sqrt(3.0D0) !A value: relaxed C-C or B
     pi = dasin(1.0D0)*2.0D0
 
     If (.Not. allocated(hk)) Allocate (hk(nwann,nwann,1:tnky,1:(nkx+1)))
@@ -213,7 +213,7 @@ Module param
   
     a3(1) = 0.0D0
     a3(2) = 0.0D0
-    a3(3) = 23.118000039458281D0
+    a3(3) = 0.0D0 !23.118000039458281D0
        
     b1(1) = 1.886915390015553D0
     b1(2) = 1.089411108363528D0
@@ -225,7 +225,7 @@ Module param
 
     b3(1) = 0.0D0
     b3(2) = 0.0D0
-    b3(3) = 0.271787580952302D0
+    b3(3) = 0.0D0 !0.271787580952302D0
   
   
     Do iorb = 1, nwann
@@ -327,16 +327,15 @@ Module param
     ! Parameter (nsubr1=85)
     ! Parameter (nsubr2=42)
     ! Parameter (nsubr3=73)
-    Parameter (nsubr1=255)
-    Parameter (nsubr2=126)
-    Parameter (nsubr3=219)
+    Parameter (nsubr1=2000)
+    Parameter (nsubr2=1000)
+    Parameter (nsubr3=1732)
   ! original G point
     Real *8 dg(3)
   ! original X point
     Real *8 dk(3)
     Real *8 dm(3)
-    Real *8 a, stepkx, stepky, stepkz, xk, yk, zk
-    a = 3.329871249355699D0/sqrt(3.0D0) !A value: relaxed C-C or 
+    Real *8 stepkx, stepky, stepkz, xk, yk, zk
     pi = dasin(1.0D0)*2.0D0
   
   ! to determine korigin
@@ -344,12 +343,12 @@ Module param
     dg(2) = 0.00D0
     dg(3) = 0.00D0
   
-    dk(1) = 2.0D0*pi/(3.0D0*a)
-    dk(2) = 2.0D0*pi/3.0D0/sqrt(3.0D0)/a
+    dk(1) = -2.0D0*pi/(3.0D0*a)
+    dk(2) = 2.0D0*pi/sqrt(3.0D0)/a
     dk(3) = 0.00D0
   
-    dm(1) = 2.0D0*pi/(3.0D0*a)
-    dm(2) = 0.00D0
+    dm(1) = 0.00D0
+    dm(2) = 2.0D0*pi/sqrt(3.0D0)/a
     dm(3) = 0.00D0
   
   
@@ -404,9 +403,8 @@ Module param
     Write (*, *) 'have obtained K-path successfully...'
   
     Open (10, File='../data/kpath.dat')
-    Write (10, *) 'original_k_path:'
     Write (10, '(3f12.6)')((bandklist(isit,knum),isit=1,3), knum=1, korigin)
-    Write (10, *)
+    ! Write (10, *)
     Write (*, *) 'have obtained new K-path successfully...'
   
     Return
