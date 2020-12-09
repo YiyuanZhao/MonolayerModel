@@ -327,9 +327,9 @@ Module param
     ! Parameter (nsubr1=85)
     ! Parameter (nsubr2=42)
     ! Parameter (nsubr3=73)
-    Parameter (nsubr1=2000)
+    Parameter (nsubr1=1732)
     Parameter (nsubr2=1000)
-    Parameter (nsubr3=1732)
+    Parameter (nsubr3=2000)
   ! original G point
     Real *8 dg(3)
   ! original X point
@@ -357,10 +357,10 @@ Module param
   
   
     kcount = 0
-    stepkx = (dk(1)-dg(1))/(nsubr1)
-    stepky = (dk(2)-dg(2))/(nsubr1)
-    stepkz = (dk(3)-dg(3))/(nsubr1)
-  ! G-->K
+    stepkx = (dm(1)-dg(1))/(nsubr1)
+    stepky = (dm(2)-dg(2))/(nsubr1)
+    stepkz = (dm(3)-dg(3))/(nsubr1)
+  ! G-->M
     Do ik = 1, nsubr1
       xk = dg(1) + (ik-1)*stepkx
       yk = dg(2) + (ik-1)*stepky
@@ -371,28 +371,28 @@ Module param
       bandklist(3, kcount) = zk
     End Do
   
-  ! K-->M
-    stepkx = (dm(1)-dk(1))/(nsubr2)
-    stepky = (dm(2)-dk(2))/(nsubr2)
-    stepkz = (dm(3)-dk(3))/(nsubr2)
+  ! M --> K
+    stepkx = (dk(1)-dm(1))/(nsubr2)
+    stepky = (dk(2)-dm(2))/(nsubr2)
+    stepkz = (dk(3)-dm(3))/(nsubr2)
     Do ik = 1, nsubr2
-      xk = dk(1) + (ik-1)*stepkx
-      yk = dk(2) + (ik-1)*stepky
-      zk = dk(3) + (ik-1)*stepkz
+      xk = dm(1) + (ik-1)*stepkx
+      yk = dm(2) + (ik-1)*stepky
+      zk = dm(3) + (ik-1)*stepkz
       kcount = kcount + 1
       bandklist(1, kcount) = xk
       bandklist(2, kcount) = yk
       bandklist(3, kcount) = zk
     End Do
   
-  ! M-->G
-    stepkx = (dg(1)-dm(1))/(nsubr3)
-    stepky = (dg(2)-dm(2))/(nsubr3)
-    stepkz = (dg(3)-dm(3))/(nsubr3)
+  ! K --> G
+    stepkx = (dg(1)-dk(1))/(nsubr3)
+    stepky = (dg(2)-dk(2))/(nsubr3)
+    stepkz = (dg(3)-dk(3))/(nsubr3)
     Do ik = 1, nsubr3 + 1
-      xk = dm(1) + (ik-1)*stepkx
-      yk = dm(2) + (ik-1)*stepky
-      zk = dm(3) + (ik-1)*stepkz
+      xk = dk(1) + (ik-1)*stepkx
+      yk = dk(2) + (ik-1)*stepky
+      zk = dk(3) + (ik-1)*stepkz
       kcount = kcount + 1
       bandklist(1, kcount) = xk
       bandklist(2, kcount) = yk
