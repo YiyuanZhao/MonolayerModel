@@ -36,7 +36,7 @@ while min(min(output.distanceTemp)) ~= Inf
 %     minValue = min(min(output.distanceTemp));
 %     output.neighbour{i} = (output.distanceTemp - minValue) < 1e-6;
 %     output.neighbourDistance{1, i} = output.distanceTemp(output.neighbour{i});
-    [output.neighbour{i}, output.neighbourDistance, output.distanceTemp] = judgeNeighbour(lattice, output.neighbour{i}, output.distanceTemp, i, 12, 1e-1);
+    [output.neighbour{i}, output.neighbourDistance, output.distanceTemp] = judgeNeighbour(lattice, output.neighbour{i}, output.distanceTemp, i, 12);
     output.neighbourDistance{2, i} = length(output.neighbourDistance{1, i});
     output.hopping{i}(:, 1) = lattice.hoppingA(output.neighbour{i});
     output.hopping{i}(:, 2) = lattice.hoppingB(output.neighbour{i});
@@ -57,7 +57,7 @@ for i = 1: 22 %length(output.neighbour)
 end
 
 %% External Functions
-function [neighbour, neighbourDistance, distanceTemp] = judgeNeighbour(lattice, ~, distanceTemp, i, degeneracy, resolution)
+function [neighbour, neighbourDistance, distanceTemp] = judgeNeighbour(lattice, ~, distanceTemp, i, degeneracy)
 minValue = min(min(distanceTemp));
 neighbour = (distanceTemp - minValue) < 1e-6;
 neighbourDistance{1, i} = distanceTemp(neighbour);
@@ -80,7 +80,5 @@ yBound = max([yBoundMax1, yBoundMax2]);
 griddata = griddedInterpolant(xBound2, [yCenter, yBound]);
 xq = lattice.x(neighbour);
 yq = griddata(xq);
-onVertical = abs(lattice.y(neighbour) - yCenter) < resolution;
-onBound2 = abs(lattice.y(neighbour) - yq) < resolution;
-in = lattice.y(neighbour) - yq > 0;
+on = 
 end
