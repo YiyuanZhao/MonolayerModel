@@ -82,5 +82,5 @@ xq = lattice.x(neighbour);
 yq = griddata(xq);
 onVertical = abs(lattice.y(neighbour) - yCenter) < resolution;
 onBound2 = abs(lattice.y(neighbour) - yq) < resolution;
-in = lattice.y(neighbour) - yq > 0;
+in = lattice.y(neighbour) - yq >= resolution;
 end
