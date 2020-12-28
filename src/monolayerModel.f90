@@ -12,16 +12,20 @@ end module Parameter
 Program monolayerModel
     use Parameter
     implicit none
+    integer :: nsite1NumIdx = 0, nsite2NumIdx = 0;
+    integer ::kpointsRecipNumIdx = 0, kpointsRecipLength = 0;
+    integer, allocatable :: 
     real *8, dimension(3, 3) :: transMatA;  
 
     interface 
-        subroutine calculateKineticEnergy(transMatA, kpointsRecip, hoppingPara, delta, hoppingMatrix, atomNumber, Hkin)
+        subroutine calculateKineticEnergy(transMatA, kpointsRecipSinglePoint, hoppingPara, delta, hoppingMatrixSplitSites,&
+             atomNumber, Hkin)
         implicit none 
-        real *8, dimension(:, :), allocatable, intent(in) :: kpointsRecip;
+        real *8, intent(in) :: kpointsRecipSinglePoint;
         real *8, dimension(:), allocatable, intent(in) :: hoppingPara, delta;
         real *8, dimension(3, 3), intent(in) :: transMatA;
         integer, intent(in) :: atomNumber;
-        integer, allocatable, intent(in) :: hoppingMatrix(:, :, :, :);
+        integer, allocatable, intent(in) :: hoppingMatrixSplitSites(:, :);
         complex *16, allocatable, intent(inout) :: Hkin(:, :);
         end subroutine calculateKineticEnergy
     end interface   
@@ -32,7 +36,16 @@ Program monolayerModel
     transMatA(1, :) = a1(:);
     transMatA(2, :) = a2(:);
     transMatA(3, :) = a3(:);
-    call calculateKineticEnergy(transMatA, kpointsRecip, hoppingPara, delta, hoppingMatrix, atomNumber, Hkin);
+    kpointsRecipLength = size(kpointsRecip, 1);
+    do nsite2NumIdx = 1, atomNumber
+        do nsite1NumIdx = 1, atomNumber
+            do kpointsRecipNumIdx = 1, kpointsRecipLength
+                call calculateKineticEnergy(transMatA, kpointsRecip(3, kpointsRecipNumIdx), hoppingPara, delta,&
+                 hoppingMatrix(nsite1NumIdx, nsite2NumIdx, :, :), atomNumber, Hkin);
+            end do            
+        end do
+    end do
+    
     call destructor();
 end Program monolayerModel
 
@@ -107,18 +120,40 @@ subroutine readHoppingParameter()
     close(30);
 end subroutine readHoppingParameter
 
-subroutine calculateKineticEnergy(transMatA, kpointsRecip, hoppingPara, delta, hoppingMatrix, atomNumber, Hkin)
+subroutine calculateKineticEnergy(transMatA, kpointsRecipSinglePoint, hoppingPara, delta, hoppingMatrixSplitSites, atomNumber, Hkin)
+!   Declaration of passing variables
 implicit none
-real *8, dimension(:, :), allocatable, intent(in) :: kpointsRecip;
+real *8, intent(in) :: kpointsRecipSinglePoint;
 real *8, dimension(:), allocatable, intent(in) :: hoppingPara, delta;
 real *8, dimension(3, 3), intent(in) :: transMatA;
 integer, intent(in) :: atomNumber;
-integer, allocatable, intent(in) :: hoppingMatrix(:, :, :, :);
+integer, allocatable, intent(in) :: hoppingMatrixSplitSites(:, :);
 complex *16, allocatable, intent(inout) :: Hkin(:, :);
+!   Declaration of the temperary variables
+integer :: outerLoopLength = 0, innerLoopLength = 0;
+integer :: outerNumIdx = 0, innerNumIdx = 0, numIdx = 0;
+integer :: nsite1NumIdx = 0, nsite2NumIdx = 0;
+complex *16 :: dotpart = 0D0;
+complex *16, dimension(3) :: a1part = 0D0, a2part = 0D0, a3part = 0D0;
+complex *16 :: sum = 0;
+!   Subroutine Content
+if (.Not. allocated(Hkin)) allocate(Hkin(atomNumber, atomNumber));
+Hkin = 0D0;
+outerLoopLength = size(hoppingPara);
+do nsite1NumIdx = 1, atomNumber
+    do nsite2NumIdx = 1, atomNumber
+        do outerNumIdx = 1, outerLoopLength
+            innerLoopLength = size(hoppingMatrix, 4);
+            do innerNumIdx = 1, innerLoopLength
+                forall (numIdx = 1: 3)
+                a1part(numIdx) = hoppingMatrix(nsite1NumIdx, nsite2NumIdx, numIdx, innerNumIdx)
+                end forall
+            end do
+        end do
+    end do   
+end do
 
-allocate(Hkin(atomNumber, atomNumber));
-Hkin(1, 1) = 1;
-write(*, *) kpointsRecip(1, 1), hoppingPara(1), delta(1), hoppingMatrix(1,1,1,1), Hkin(1, 1);
+write(*, *) kpointsRecip(1, 1), hoppingPara(1), delta(1), hoppingMatrix(1,1,1,1), Hkin(1, 3);
 
 end subroutine calculateKineticEnergy
 
