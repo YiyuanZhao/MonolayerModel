@@ -1,9 +1,9 @@
 Module Parameter
     integer atomNumber;
     real *8, dimension(:, :), allocatable :: kpointsRecip;
-    real *8, dimension(:), allocatable :: hoppingPara, delta;
+    real *8, dimension(:), allocatable :: hoppingPara, Delta;
     complex *16, allocatable :: Hkin(:, :);
-    integer, allocatable :: hoppingMatrix(:, :, :, :);   
+    integer, allocatable :: hoppingMatrix(:, :, :, :);
     real *8, dimension(3) :: a1 = (/  3.3291,  -0.0000,  0.0000 /);
     real *8, dimension(3) :: a2 = (/ -1.6645,   2.8831, -0.0000 /);
     real *8, dimension(3) :: a3 = (/  0.0000,  -0.0000, 23.1180 /);
@@ -14,7 +14,7 @@ Program monolayerModel
     implicit none
     integer :: nsite1NumIdx = 0, nsite2NumIdx = 0;
     integer ::kpointsRecipNumIdx = 0, kpointsRecipLength = 0;
-    integer, allocatable :: 
+    integer, allocatable :: hoppingMatrixSplitSites(:, :);
     real *8, dimension(3, 3) :: transMatA;  
 
     interface 
@@ -39,9 +39,10 @@ Program monolayerModel
     kpointsRecipLength = size(kpointsRecip, 1);
     do nsite2NumIdx = 1, atomNumber
         do nsite1NumIdx = 1, atomNumber
+            hoppingMatrixSplitSites = hoppingMatrix(nsite1NumIdx, nsite2NumIdx, :, :);
             do kpointsRecipNumIdx = 1, kpointsRecipLength
                 call calculateKineticEnergy(transMatA, kpointsRecip(3, kpointsRecipNumIdx), hoppingPara, delta,&
-                 hoppingMatrix(nsite1NumIdx, nsite2NumIdx, :, :), atomNumber, Hkin);
+                hoppingMatrixSplitSites, atomNumber, Hkin);
             end do            
         end do
     end do
@@ -60,6 +61,7 @@ subroutine readKpointsRecip()
         read(10, *) kpointsRecip(1, numIdx), kpointsRecip(2, numIdx), kpointsRecip(3, numIdx);
     end do
     close(10);
+    
 end subroutine readKpointsRecip  
 
 
@@ -140,20 +142,17 @@ complex *16 :: sum = 0;
 if (.Not. allocated(Hkin)) allocate(Hkin(atomNumber, atomNumber));
 Hkin = 0D0;
 outerLoopLength = size(hoppingPara);
-do nsite1NumIdx = 1, atomNumber
-    do nsite2NumIdx = 1, atomNumber
-        do outerNumIdx = 1, outerLoopLength
-            innerLoopLength = size(hoppingMatrix, 4);
-            do innerNumIdx = 1, innerLoopLength
-                forall (numIdx = 1: 3)
-                a1part(numIdx) = hoppingMatrix(nsite1NumIdx, nsite2NumIdx, numIdx, innerNumIdx)
-                end forall
-            end do
-        end do
-    end do   
+
+do outerNumIdx = 1, outerLoopLength
+    innerLoopLength = size(hoppingMatrixSplitSites, 1);
+    do innerNumIdx = 1, innerLoopLength
+        forall (numIdx = 1: 3)
+        a1part(numIdx) = hoppingMatrixSplitSites(numIdx, innerNumIdx)
+        end forall
+    end do
 end do
 
-write(*, *) kpointsRecip(1, 1), hoppingPara(1), delta(1), hoppingMatrix(1,1,1,1), Hkin(1, 3);
+write(*, *) kpointsRecipSinglePoint, hoppingPara(1), delta(1), hoppingMatrixSplitSites(1, 1), Hkin(1, 3);
 
 end subroutine calculateKineticEnergy
 
