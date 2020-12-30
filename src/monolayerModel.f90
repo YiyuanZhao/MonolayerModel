@@ -2,7 +2,7 @@ Module Parameter
     integer atomNumber;
     real *8, dimension(:, :), allocatable :: kpointsRecip;
     real *8, dimension(:), allocatable :: hoppingPara, Delta;
-    complex *16, allocatable :: Hkin(:, :);
+    complex *16, allocatable :: Hkin(:, :, :);
     integer, allocatable :: hoppingMatrix(:, :, :, :);
     real *8, dimension(3) :: a1 = (/  3.3291,  -0.0000,  0.0000 /);
     real *8, dimension(3) :: a2 = (/ -1.6645,   2.8831, -0.0000 /);
@@ -19,16 +19,27 @@ Program monolayerModel
     real *8, dimension(3, 3) :: transMatA;
     real *8, dimension(3) :: kpointsRecipSinglePoint;
     complex *16 :: KineticEnergy = 0D0;
-
+    ! Variables defined in lapack
+    Integer lwork, NB, info;
+    Character UPLO
+    Real *8, allocatable :: rwork(:), eval(:);
+    Real *8 work(1000);
+    Real *8 LWKOPT;
+    ! Interface defination
     interface 
-        subroutine calculateKineticEnergy(transMatA, kpointsRecipSinglePoint, hoppingPara, delta, hoppingMatrixSplitSites, Hkin)
-        implicit none 
-        real *8, dimension(3), intent(in) :: kpointsRecipSinglePoint;
-        real *8, dimension(:), allocatable, intent(in) :: hoppingPara, delta;
-        real *8, dimension(3, 3), intent(in) :: transMatA;
-        integer, allocatable, intent(in) :: hoppingMatrixSplitSites(:, :, :);
-        complex *16, intent(inout) :: Hkin;
+        subroutine calculateKineticEnergy(transMatA, kpointsRecipSinglePoint, hoppingPara, hoppingMatrixSplitSites, Hkin)
+            implicit none 
+            real *8, dimension(3), intent(in) :: kpointsRecipSinglePoint;
+            real *8, dimension(:), allocatable, intent(in) :: hoppingPara;
+            real *8, dimension(3, 3), intent(in) :: transMatA;
+            integer, allocatable, intent(in) :: hoppingMatrixSplitSites(:, :, :);
+            complex *16, intent(inout) :: Hkin;
         end subroutine calculateKineticEnergy
+
+        function ILAENV(ISPEC, NAME, OPTS, N1, N2, N3, N4)
+            integer ISPEC, N1, N2, N3, N4;
+            character NAME(*), OPTS(*);
+        end function
     end interface   
 
     call readKpointsRecip();
@@ -37,7 +48,9 @@ Program monolayerModel
     transMatA(:, 1) = a1(:);
     transMatA(:, 2) = a2(:);
     transMatA(:, 3) = a3(:);
-    kpointsRecipLength = size(kpointsRecip, 1);
+    kpointsRecipLength = size(kpointsRecip, 2);
+    If (.Not. allocated(Hkin)) Allocate (Hkin(atomNumber, atomNumber, kpointsRecipLength));
+    Hkin = 0D0;
     do nsite2NumIdx = 1, atomNumber
         do nsite1NumIdx = 1, atomNumber           
             hoppingMatrixLength = size(hoppingMatrix(:, :, nsite1NumIdx, nsite2NumIdx), 2);
@@ -56,13 +69,33 @@ Program monolayerModel
             end do
             do kpointsRecipNumIdx = 1, kpointsRecipLength
                 kpointsRecipSinglePoint = kpointsRecip(:, kpointsRecipNumIdx);
-                call calculateKineticEnergy(transMatA, kpointsRecipSinglePoint, hoppingPara, delta,&
+                call calculateKineticEnergy(transMatA, kpointsRecipSinglePoint, hoppingPara,&
                  hoppingMatrixSplitSites, KineticEnergy);
+                Hkin(nsite1NumIdx, nsite2NumIdx, kpointsRecipNumIdx) = KineticEnergy;
             end do            
         end do
     end do
     
+    if ( atomNumber >= 1 ) then
+        allocate(rwork(3*atomNumber-2));
+        allocate(eval(atomNumber));
+        do kpointsRecipNumIdx = 1, kpointsRecipLength
+            NB = ILAENV ( 1, 'ZHETRD', UPLO, atomNumber, -1, -1, -1 )
+            LWKOPT = MAX( 1, ( NB+1 )*atomNumber )
+            WORK(1) = LWKOPT
+            lwork = min(1000, int(work(1)))
+        !      Solve eigenproblem.
+            Call zheev('V', 'U', atomNumber, Hkin(:, :, kpointsRecipNumIdx), atomNumber, eval, work, lwork, rwork, info)
+        !      Check for convergence.
+            If (info>0) Then
+              Write (*, *) 'The algorithm failed to compute eigenvalues.'
+              Stop
+            End If
+        end do
+    end if
+
     call destructor();
+    deallocate(hoppingMatrixSplitSites);
 end Program monolayerModel
 
 subroutine readKpointsRecip()
@@ -137,11 +170,11 @@ subroutine readHoppingParameter()
     close(30);
 end subroutine readHoppingParameter
 
-subroutine calculateKineticEnergy(transMatA, kpointsRecipSinglePoint, hoppingPara, delta, hoppingMatrixSplitSites, Hkin)
+subroutine calculateKineticEnergy(transMatA, kpointsRecipSinglePoint, hoppingPara, hoppingMatrixSplitSites, Hkin)
 !   Declaration of passing variables
 implicit none
 real *8, dimension(3), intent(in) :: kpointsRecipSinglePoint;
-real *8, dimension(:), allocatable, intent(in) :: hoppingPara, delta;
+real *8, dimension(:), allocatable, intent(in) :: hoppingPara;
 real *8, dimension(3, 3), intent(in) :: transMatA;
 integer, allocatable, intent(in) :: hoppingMatrixSplitSites(:, :, :);
 complex *16, intent(inout) :: Hkin;
@@ -150,11 +183,12 @@ integer :: neighbourLoopLength = 0, innerLoopLength = 0;
 integer :: neighbourNumIdx = 0, innerNumIdx = 0, numIdx = 0;
 complex *16 :: dotpart = 0D0, sum = 0D0;
 complex *16, dimension(3) :: a1part = 0D0, a2part = 0D0, a3part = 0D0;
+complex *16, Parameter :: unitI = (0D0, 1D0);
 !   Subroutine Content
 Hkin = 0D0;
 neighbourLoopLength = size(hoppingPara);
-
 do neighbourNumIdx = 1, neighbourLoopLength
+    sum = 0D0;
     innerLoopLength = size(hoppingMatrixSplitSites, 2);
     do innerNumIdx = 1, innerLoopLength
         forall (numIdx = 1: 3)
@@ -163,11 +197,10 @@ do neighbourNumIdx = 1, neighbourLoopLength
             a3part(numIdx) = hoppingMatrixSplitSites(neighbourNumIdx, innerNumIdx, numIdx) * transMatA(numIdx, 3);
         end forall
         dotpart = dot_product(kpointsRecipSinglePoint, a1part + a2part + a3part);
+        sum = sum + exp(unitI * dotpart);
     end do
+    Hkin = Hkin + sum*hoppingPara(neighbourNumIdx);
 end do
-
-write(*, *) kpointsRecipSinglePoint, hoppingPara(1), delta(1), hoppingMatrixSplitSites(1, 1, 1), Hkin;
-
 end subroutine calculateKineticEnergy
 
 subroutine destructor()
