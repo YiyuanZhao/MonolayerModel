@@ -432,7 +432,7 @@ Module param
     If (ch_state=='V') Then
       NB = ILAENV( 1, 'ZHETRD', UPLO, nsite, -1, -1, -1 )
       LWKOPT = MAX( 1, ( NB+1 )*nsite )
-      WORK( 1 ) = LWKOPT
+      WORK(1) = LWKOPT
       lwork = min(lwmax, int(work(1)))
   !      Solve eigenproblem.
       Call zheev('V', 'U', nsite, ham, nsite, eval, work, lwork, rwork, info)
