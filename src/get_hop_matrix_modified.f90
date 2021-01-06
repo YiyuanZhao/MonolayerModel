@@ -9,6 +9,7 @@ Module param
     Integer korigin, kwien2k, korigextend, kwork
     Real *8, Allocatable :: bandklist(:, :)
     Real *8, Allocatable :: bandklist_extend(:, :)
+    integer, allocatable :: ndegen(:)
   ! the fractional translation vector !!!
     Real *8 vec_trans(3), unfoldvec(3)
   ! the transformation matrix in orbital space !!!
@@ -27,6 +28,7 @@ Module param
   Program get_hop_matrix
     Use param
     Implicit None
+
   ! Timer Settings
     real(kind=4)    :: t1,t2
     character(len=10)   :: time1,time2
@@ -34,7 +36,7 @@ Module param
     call date_and_time(thedate,time1)
 
   !  Timer Settings End
-    filename = '../data/grapThird.dat'
+    filename = '../data/grap.dat'
   ! constants !!!
     pi = dasin(1.0D0)*2.0D0
     twopi = 2.0D0*pi
@@ -64,7 +66,6 @@ Module param
   Subroutine read_hr()
     Use param
     Character (30) ch
-    ! Integer, Allocatable :: ndegen(:)
     Open (10, File=filename)
     Read (10, *) ch
     Read (10, *) nwann
@@ -73,8 +74,8 @@ Module param
     Read (10, *) nrdg
     Write (*, *) 'NRdg=', nrdg
   ! to read out degenerate of every real point!
-    ! If (.Not. allocated(ndegen)) Allocate (ndegen(nrdg))
-    ! ! Read (10, '(15i5)')(ndegen(isit), isit=1, nrdg)
+    If (.Not. allocated(ndegen)) Allocate (ndegen(nrdg))
+    Read (10, '(15i5)')(ndegen(isit), isit=1, nrdg)
     ! If (allocated(ndegen)) Deallocate (ndegen)
     If (.Not. allocated(rnspac)) Allocate (rnspac(3,nrdg))
     If (.Not. allocated(ham_r)) Allocate (ham_r(nwann,nwann,nrdg))
@@ -121,7 +122,7 @@ Module param
         wk(ik) = bandkpath(ik, kloop)
       End Do
   
-      Call cal_spectrum(wk, hak, ham_work, eval, nwann, ham_r, rnspac, nrdg)
+      Call cal_spectrum(wk, hak, ham_work, eval)
   
       Do iband = 1, nwann
         eigenval(iband, kloop) = eval(iband)
@@ -165,7 +166,7 @@ Module param
         wk(2) = yk
         Write (17, '(2f12.6)') xk, yk
         wk(3) = 0.0D0
-        Call cal_spectrum(wk, hak, ham_work, eval, nwann, ham_r, rnspac, nrdg)
+        Call cal_spectrum(wk, hak, ham_work, eval)
         Write (17, '(2f12.6)') xk, yk
         Do iorb = 1, nwann
           Do jorb = 1, nwann
@@ -187,16 +188,16 @@ Module param
   !to calculate bandstructure of given point based on unit cell used in the calclation !
   !**********************************************************************************!!!
   !**********************************************************************************!!!
-  Subroutine cal_spectrum(wk, hak, hamvec, eig, nwann, ham_r, rnspac, nrdg)
+  Subroutine cal_spectrum(wk, hak, hamvec, eig)
+    use param
     Real *8 wk(3), rn(3), eig(nwann)
     Complex *16 structphase
     Complex *16 hamk_wk(nwann, nwann), ham_work(nwann, nwann)
     Complex *16 hak(nwann, nwann)
-    Complex *16 hamvec(nwann, nwann), ham_r(nwann, nwann, nrdg)
+    Complex *16 hamvec(nwann, nwann)
     Real *8 a1(3), a2(3), a3(3)
     Real *8 b1(3), b2(3), b3(3)
-    Real *8 temp(3), newk(3), pi, twopi
-    Integer rnspac(3, nrdg)
+    Real *8 temp(3), newk(3)
     Character (30) ch_state
     Double precision dotproduct
   
@@ -282,7 +283,7 @@ Module param
   
       Do iorb = 1, nwann
         Do jorb = 1, nwann
-          hamk_wk(jorb, iorb) = hamk_wk(jorb, iorb) + ham_r(jorb, iorb, isit)*structphase
+          hamk_wk(jorb, iorb) = hamk_wk(jorb, iorb) + ham_r(jorb, iorb, isit)*structphase / dble(ndegen(isit))
         End Do
       End Do
   
