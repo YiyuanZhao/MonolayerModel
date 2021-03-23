@@ -17,11 +17,12 @@ Module param
   ! band structure in full brillouin zone !!!
   !	integer   NKX,NKY,NKZ
     Integer nkx, nky, dnky, tnky
-    Parameter (nkx=1201, nky=600, dnky=1201, tnky=dnky+nky)
+    Parameter (nkx=17, nky=20)
+    ! Parameter (nkx=1732, nky=2000)
     ! Parameter (nkx=601, nky=300, dnky=601, tnky=dnky+nky)
     Real *8 pi, twopi
     Real *8 veclat(3)
-    Real *8, Parameter :: a = 3.329871249355699D0
+    Real *8, Parameter :: a = 6.5085482243
   End Module param
   !************************************************************************!!!
   !************************************************************************!!!
@@ -36,7 +37,9 @@ Module param
     call date_and_time(thedate,time1)
 
   !  Timer Settings End
-    filename = '../data/grap.dat'
+    ! filename = '../data/grap.dat'
+    filename = '../data/BLG335.dat'
+    ! filename = 'D:\OneDrive - tongji.edu.cn\BLG\2.60\wannier90_hr.dat'
   ! constants !!!
     pi = dasin(1.0D0)*2.0D0
     twopi = 2.0D0*pi
@@ -48,9 +51,9 @@ Module param
   ! to get K_path !!!
   
     kwork = korigin
-    Call cal_origin_band(bandklist, kwork)
+    ! Call cal_origin_band(bandklist, kwork)
   !
-    ! Call cal_hk_allzone()
+    Call cal_hk_allzone()
     ! Timer Settings Begin
     call date_and_time(thedate,time2)
     read(time1,*) t1
@@ -87,6 +90,9 @@ Module param
           If (dabs(dimag(ham_r(jorb,iorb,isit)))<2.D-6) Then
             ham_r(jorb, iorb, isit) = dcmplx(dble(ham_r(jorb,iorb,isit)), 0.0D0)
           End If
+          if (nrx == 0 .and. nry == 0 .and. nrz == 0 .and. korb == lorb) then
+            ham_r(jorb, iorb, isit) = dcmplx(0.0D0, 0.0D0);
+          End if
         End Do
       End Do
       rnspac(1, isit) = nrx
@@ -145,22 +151,23 @@ Module param
   Subroutine cal_hk_allzone()
     Use param
     ! Implicit Double Precision (A-H, O-Z)
+    Implicit None
+    Integer nksum, kx, ky, iorb, jorb
     Real *8 wk(3), xk, yk, dkx, dky, eval(nwann)
     Complex *16, Allocatable :: hk(:, :, :, :)
     Complex *16 ham_work(nwann, nwann), hak(nwann, nwann)
     pi = dasin(1.0D0)*2.0D0
 
-    If (.Not. allocated(hk)) Allocate (hk(nwann,nwann,1:tnky,1:(nkx+1)))
-    Open (11, File='../data/HK.dat')
+    If (.Not. allocated(hk)) Allocate (hk(nwann,nwann,1:(nky+1),1:(nkx+1)))
+    Open (20, File='../data/HK.dat')
     Open (17, File='../data/kx+ky.dat')
     nksum = 0
     Do kx = 1, nkx + 1
-      dkx = (2.0D0*pi/(3.0*a))/dble(nkx-1)
-      xk = dble(kx-1)*dkx
-      Do ky = 1, tnky
-        ndy = ky - 2*nky - 1
-        dky = (2.0D0*pi/(3.0*sqrt(3.0D0)*a))/dble(nky)
-        yk = dble(ky-2.0D0*nky-1)*dky
+      dkx = 6.0D0*pi/(3.0D0*a*nkx) !(2.0D0*pi/(3.0*a))/dble(nkx-1)
+      xk = -2.0D0*pi/(3.0D0*a) + (kx-1)*dkx !dble(kx-1)*dkx
+      Do ky = 1, nky + 1
+        dky = (4.0D0*pi)/(sqrt(3.0D0)*a*nky)
+        yk = -(2.0D0*pi)/(sqrt(3.0D0)*a) + (ky-1)*dky
         nksum = nksum + 1
         wk(1) = xk
         wk(2) = yk
@@ -171,16 +178,17 @@ Module param
         Do iorb = 1, nwann
           Do jorb = 1, nwann
             hk(jorb, iorb, ky, kx) = hak(jorb, iorb)
-            Write (11, '(2f12.6)') hk(jorb, iorb, ky, kx)
+            Write (20, '(2f18.10)') hk(jorb, iorb, ky, kx)  
           End Do
         End Do
       End Do
+      write(*, *) kx, '/', nkx + 1
     End Do
-    Write (11, *) 'The-End!'
+    Write (20, *) 'The-End!'
     Write (*, *) 'total k points', nksum
     Close (17)
-    Close (11)
-    Return
+    Close (20)
+    ! Return
   End Subroutine cal_hk_allzone
   !********all Brilliouin zone****************************************
   !**********************************************************************************!!!
@@ -204,24 +212,24 @@ Module param
     pi = dasin(1.0D0)*2.0D0
     twopi = 2.0D0*pi
   !     relaxed lattice constant need to modify!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    a1(1) = 3.329871249355699D0
+    a1(1) = 6.5085482243D0
     a1(2) = 0.0D0
     a1(3) = 0.0D0
        
-    a2(1) = -1.664935624677850D0
-    a2(2) = 2.883753093273462D0
+    a2(1) = -3.2542741121D0
+    a2(2) = 5.6365681040D0
     a2(3) = 0.0D0
   
     a3(1) = 0.0D0
     a3(2) = 0.0D0
     a3(3) = 0.0D0 !23.118000039458281D0
        
-    b1(1) = 1.886915390015553D0
-    b1(2) = 1.089411108363528D0
+    b1(1) = 0.965374318610868D0
+    b1(2) = 0.557359122710163D0
     b1(3) = 0.0D0
 
     b2(1) = 0.0D0
-    b2(2) = 2.178822216727055D0
+    b2(2) = 1.11471824543745D0
     b2(3) = 0.0D0
 
     b3(1) = 0.0D0
@@ -328,9 +336,9 @@ Module param
     ! Parameter (nsubr1=85)
     ! Parameter (nsubr2=42)
     ! Parameter (nsubr3=73)
-    Parameter (nsubr1=1732)
-    Parameter (nsubr2=1000)
-    Parameter (nsubr3=2000)
+    Parameter (nsubr1=17320)
+    Parameter (nsubr2=10000)
+    Parameter (nsubr3=20000)
   ! original G point
     Real *8 dg(3)
   ! original X point
