@@ -35,7 +35,8 @@ real(dp),public,save::U
 real(dp),public,save::Delta1
 real(dp),public,save::Delta2
 real(dp),public,save::Delta3
-real(dp),public,save::Ef
+real(dp),public,save::Ef_Lattice
+real(dp),public,save::Ef_Impurity
 real(dp),public,save::E_max
 real(dp),public,save::E_min
 real(dp),public,save::domega
@@ -182,7 +183,8 @@ end do
 E_max=16.0d0
 E_min=-13.0d0
 domega=(E_max-E_min)/DBLE(Nw-1)
-Ef=U/2.0d0
+Ef_Lattice=U/2.0d0
+Ef_Impurity=U/2.0d0
 do i=1,Nw
    Omega(i)=E_min+DBLE(i-1)*domega+ione*eta
 end do
@@ -232,7 +234,8 @@ do i_site=1,Nsite
 end do
 !!!!!!!!!!!!!!!--calculate the effective medium greenfunctions--!!!!!!!!!!!!!
 call system_clock(t3)
-!$Omp parallel num_threads(6) default(shared) private(k, i_site, j_site, i, DELTA)
+!$Omp parallel num_threads(12) default(shared) private(k, i_site, j_site, i)&
+!$Omp firstprivate(Omega, SE_old, DELTA, HK, HK_k, INVHK_k)
 !$Omp do schedule(guided)
 do k=1,NK
    do i_site=1,Nsite
@@ -242,7 +245,7 @@ do k=1,NK
    end do
    do i=1,Nw
       do i_site=1,Nsite
-         HK_k(i_site,i_site,k)=Omega(i)-HK(i_site,i_site,k)-SE_old(i_site,i)+Ef-DELTA(i_site)
+         HK_k(i_site,i_site,k)=Omega(i)-HK(i_site,i_site,k)-SE_old(i_site,i)+Ef_Lattice-DELTA(i_site)
       end do
       
       call INVERT(Nsite,HK_k(:,:,k),INVHK_k(:,:,k))
@@ -265,9 +268,9 @@ do i=1,Nw
    do i_site=1,Nsite
       do i_alpha=1,Nalpha
          if(i_alpha==1)then
-           Impurity_G_alpha(i_alpha,i_site,i)=1.0d0/(1.0d0/Cavity_G(i_site,i)-U)
+           Impurity_G_alpha(i_alpha,i_site,i)=1.0d0/(1.0d0/Cavity_G(i_site,i)-U/2.0d0-Ef_Lattice+Ef_Impurity)
          else
-           Impurity_G_alpha(i_alpha,i_site,i)=1.0d0/(1.0d0/Cavity_G(i_site,i)-0)
+           Impurity_G_alpha(i_alpha,i_site,i)=1.0d0/(1.0d0/Cavity_G(i_site,i)+U/2.0d0-Ef_Lattice+Ef_Impurity)
          end if
       end do
       do i_alpha=1,Nalpha     
@@ -281,10 +284,49 @@ end do
 !end do
 !close(13)
 !stop
-!!!!!!!!!!!!--calculate the new self-energy according to Dyson EQ--!!!!!!!!!!!
+!!!!!!!!!!!!--calculate the Ef_lattice from lattice model--!!!!!!!!!!!!!
 do i=1,Nw
    do i_site=1,Nsite
-      SE_new(i_site,i)=1.0d0/(Cavity_G(i_site,i))-1.0d0/(Impurity_G(i_site,i))
+      DOS(i_site,i)=DOS(i_site,i)-(1.0d0/pi)*AIMAG(Lattice_G(i_site,i))
+   end do
+end do
+!!!!!!!!!!!--<<<Calculate the fermi surface of Lattice model>>>--!!!!!!!!!!
+Tn0=zero
+Tnt=zero
+do i=2,Nw
+   do i_site=1,Nsite
+        Tn0=Tn0+0.5d0*(DOS(i_site,i)+DOS(i_site,i-1))*domega
+   end do     
+end do
+ifermi=1
+do i=2,Nw
+   if(Tnt.LT.Tn0/2.0d0)then
+     ifermi=ifermi+1
+     do i_site=1,Nsite
+        Tnt=Tnt+0.5d0*(DOS(i_site,i)+DOS(i_site,i-1))*domega
+     end do
+   else  
+     do i_site=1,Nsite
+        Tnt=Tnt-0.25d0*(DOS(i_site,ifermi)+DOS(i_site,ifermi-1))*domega
+     end do
+     goto 60
+   end if
+end do
+60 continue
+Ef_lattice=REAL(omega(ifermi)+omega(ifermi-1))/2.0d0
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!--calculate the new self-energy according to Dyson EQ--!!!!!!!!!!!
+!!!!!!!!!!!!!!--calculate the Ef_impurity from impurity model--!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+do i=1,Nw
+   TDOS(i)=zero
+   do i_site=1,Nsite
+      DOS(i_site,i)=zero
+   end do
+end do
+do i=1,Nw
+   do i_site=1,Nsite
+      SE_new(i_site,i)=1.0d0/(Cavity_G(i_site,i))-1.0d0/(Impurity_G(i_site,i))+Ef_Lattice-Ef_Impurity
       DOS(i_site,i)=DOS(i_site,i)-(1.0d0/pi)*AIMAG(Impurity_G(i_site,i))
    end do
 end do
@@ -332,8 +374,8 @@ close(13)
 write(12,*)"Total occupation:",Tn0
 write(12,*)"Total half occupation:",Tnt
 ! Ef=U/2.0d0+REAL(omega(ifermi)+omega(ifermi-1))/2.0d0
-Ef=REAL(omega(ifermi)+omega(ifermi-1))/2.0d0
-write(*, *) Ef
+Ef_impurity=REAL(omega(ifermi)+omega(ifermi-1))/2.0d0
+write(*, *) Ef_impurity,Ef_lattice
 write(12,*)"=========================================================="
 write(12,*)"Initial occupations:"
 write(12,"(7f12.6)")ne0(:)
@@ -362,7 +404,7 @@ end do
 call date_and_time(thedate,time2)
 read(time1,*) t1
 read(time2,*) t2
-write(12,*)"Ef=",Ef,"Eferror=",REAL(omega(ifermi)+omega(ifermi-1))/2.0d0
+write(*,*)"adjusting energy of G_0imp and G_0Lattice=",Ef_impurity-Ef_lattice,"Ef_impurity=",Ef_impurity,"Ef_lattice=",Ef_lattice
 write(12,*)"Maximal occupation numbers error:",Maxerror_ne
 write(12,*)"Maximal self-energy error:",Maxerror_SE
 write(12,*)"time:", t2-t1
