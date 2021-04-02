@@ -22,8 +22,8 @@ implicit none
 integer,public,parameter::itermax=1000
 integer,public,parameter::Nsite=28
 integer,public,parameter::Nalpha=2
-real(dp),public,parameter::max_eps_SE=1.0d-7
-real(dp),public,parameter::max_eps_Ef=1.0d-2
+real(dp),public,parameter::max_eps_SE=1.0d-4
+real(dp),public,parameter::max_eps_Ef=1.0d-4
 real(dp),public,parameter::eta=1.0d-2
 integer,public,save::Nw
 integer,public,save::NK
@@ -72,7 +72,7 @@ integer k
 integer i_site
 integer j_site
 integer i_alpha
-Integer :: t3,t4
+integer t3, t4
 character(20)ch
 if(.not.allocated(ne)) allocate(ne(Nsite))
 if(.not.allocated(DELTA)) allocate(DELTA(Nsite))
@@ -247,7 +247,7 @@ do i=2,Nw
       Tnt=Tnt+0.5d0*(TDOS(i)+TDOS(i-1))*domega
    else if(DREAL(Omega(i))*DREAL(Omega(i-1))<0.0d0)then
       Tnt=Tnt+0.25d0*(TDOS(i)+TDOS(i-1))*domega
-   end if
+   end if  
 end do
 !!!!!!!!!!!!!!---The dichotomy method to search fermi level---!!!!!!!!!!!!!!!
 write(*,*) Error_Ef, Ef_max, Ef_min
@@ -290,9 +290,9 @@ end do
 do i=2,Nw
    do i_site=1,Nsite
       if(DREAL(Omega(i)).LT.0.0d0)then
-        ne(i_site)=ne(i_site)+0.5d0*(TDOS(i)+TDOS(i-1))*domega
+        ne(i_site)=ne(i_site)+0.5d0*(DOS(i_site,i)+DOS(i_site,i-1))*domega
       else if(DREAL(Omega(i))*DREAL(Omega(i-1))<0.0d0)then
-        ne(i_site)=ne(i_site)+0.25d0*(TDOS(i)+TDOS(i-1))*domega
+        ne(i_site)=ne(i_site)+0.25d0*(DOS(i_site,i)+DOS(i_site,i-1))*domega
       end if 
    end do
 end do
@@ -377,98 +377,23 @@ do i=1,Nw
    end do
 end do
 open(14,file='TDOS.txt')
-do i=1,Nw
-   write(14,"(2f14.10)")DREAL(omega(i))-Ef,TDOS(i)
-end do 
-close(14)
 open(15,file='ATOM_DOS.txt')
+open(16,file='Self_energy_L1.txt')
+open(17,file='Self_energy_L2.txt')
 do i=1,Nw
-   write(14,"(29f10.6)")REAL(omega(i)),DOS(:,i)
+   write(14,"(2f14.10)")DREAL(omega(i)),TDOS(i)
+   write(15,"(29f10.6)")REAL(omega(i)),(DOS(i_site,i),i_site=1,Nsite)
+   write(16,"(29f14.10)")DREAL(omega(i)),(SE_new(i_site,i),i_site=1,Nsite/2)
+   write(17,"(29f14.10)")DREAL(omega(i)),(SE_new(i_site,i),i_site=Nsite/2+1,Nsite)
 end do
-
+close(14)
+close(15)
+close(16)
+close(17)
 end
-! ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! ! !!!!!!!!!!!!!!!!!!!!------Subroutine------!!!!!!!!!!!!!!!!!!!!!
-! ! !>>> to calculat the inverse of the matrix for complex matrix !
-! !========+=========+=========+=========+=========+=========+=========+=$
-!       subroutine INVERTs(m,c,cinv)
-!       implicit complex*16(a-h,o-z)
-!       parameter (isafe=1)
-!       complex*16 a,c,z,ad,bd,zb,b,duma,dumb,one,zero
-!       dimension a(m,m),b(m,m),c(m,m),z(m),ad(m),bd(m)
-!       dimension cinv(m,m),binv(m,m)
-!       IF(m.EQ.1)THEN
-!       cinv=DCMPLX(1.0D0,0.0D0)/c
-!       GOTO 600
-!       ENDIF
-!          do i=1,m
-!          do j=1,m
-!             binv(i,j)=c(i,j)
-!          end do
-!       end do
-!       zero=0.0
-!       one=1.0
-!       do 10 i=1,m
-!       do 20 j=1,m
-!       b(i,j)=zero
-!       a(i,j)=c(i,j)
-! 20    continue
-!       b(i,i)=one
-! 10    continue
-!       do 110 i=1,m
-!       if(isafe.eq.0) go to 100
-!       amax=0.0d0
-!       do 290 k=i,m
-!       if(abs(a(k,i)).lt.real(amax)) go to 290
-!       amax=abs(a(k,i))
-!       iswap=k
-! 290   continue
-!       if(iswap.eq.i) go to 280
-!       do 300 l=1,m
-!       duma=a(iswap,l)
-!       dumb=b(iswap,l)
-!       a(iswap,l)=a(i,l)
-!       b(iswap,l)=b(i,l)
-!       a(i,l)=duma
-!       b(i,l)=dumb
-! 300   continue
-! 280   continue
-! 100   continue
-!       do 990 j=1,m
-!       z(j)=a(j,i)/a(i,i)
-! 990   continue
-!       z(i)=zero
-!       do 150 k=1,m
-!       ad(k)=a(i,k)
-!       bd(k)=b(i,k)
-! 150   continue
-!       do 170 k=1,m
-!       do 180 j=1,m
-!       a(j,k)=a(j,k)-z(j)*ad(k)
-!       b(j,k)=b(j,k)-z(j)*bd(k)
-! 180   continue
-! 170   continue
-! 110   continue
-!       do 200 k=1,m
-!       zb=one/a(k,k)
-!       do 210 ka=1,m
-!       b(k,ka)=b(k,ka)*zb
-! 210   continue
-! 200   continue
-!       do 310 i=1,m
-!       do 320 j=1,m
-!       cinv(i,j)=b(i,j)
-! 320   continue
-! 310   continue
-!       do i=1,m
-!       do j=1,m
-!       c(i,j)=binv(i,j)
-!       enddo
-!       enddo 
-! 600   CONTINUE 
-! return
-! end subroutine inverts
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! !!!!!!!!!!!!!!!!!!!!------Subroutine------!!!!!!!!!!!!!!!!!!!!!
+! !>>> to calculat the inverse of the matrix for complex matrix !
 SUBROUTINE INVERT(N,A,C)
 IMPLICIT DOUBLE PRECISION(A-H,O-Z)
 INTEGER     LWORK, INFO, LDA, N, M
@@ -583,15 +508,13 @@ END DO
             STOP 'MATRIX INVERSE FAILED'
   ENDIF
  ENDIF
-!C TO RESTORE THESE MATRICES
-
+!!!C TO RESTORE THESE MATRICES
     DO I=1,N
     DO J=1,N
        C(I,J)=A(I,J)
        A(I,J)=D(I,J)
     END DO
  END DO
-
-50   CONTINUE
+50 CONTINUE
  RETURN
 END SUBROUTINE INVERT

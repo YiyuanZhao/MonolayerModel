@@ -17,12 +17,13 @@ Module param
   ! band structure in full brillouin zone !!!
   !	integer   NKX,NKY,NKZ
     Integer nkx, nky, dnky, tnky
-    Parameter (nkx=17, nky=20)
+    Parameter (nkx=34, nky=40)
     ! Parameter (nkx=1732, nky=2000)
     ! Parameter (nkx=601, nky=300, dnky=601, tnky=dnky+nky)
     Real *8 pi, twopi
     Real *8 veclat(3)
-    Real *8, Parameter :: a = 6.5085482243
+    Real *8, Parameter :: a = 6.5085482243D0
+    Real *8, Parameter :: fermiLevel = -2.08436568D0
   End Module param
   !************************************************************************!!!
   !************************************************************************!!!
@@ -38,8 +39,8 @@ Module param
 
   !  Timer Settings End
     ! filename = '../data/grap.dat'
-    filename = '../data/BLG335.dat'
-    ! filename = 'D:\OneDrive - tongji.edu.cn\BLG\2.60\wannier90_hr.dat'
+    ! filename = '../data/BLG335.dat'
+    filename = 'D:\OneDrive - tongji.edu.cn\BLG\2.60\wannier90_hr.dat'
   ! constants !!!
     pi = dasin(1.0D0)*2.0D0
     twopi = 2.0D0*pi
@@ -90,9 +91,9 @@ Module param
           If (dabs(dimag(ham_r(jorb,iorb,isit)))<2.D-6) Then
             ham_r(jorb, iorb, isit) = dcmplx(dble(ham_r(jorb,iorb,isit)), 0.0D0)
           End If
-          if (nrx == 0 .and. nry == 0 .and. nrz == 0 .and. korb == lorb) then
-            ham_r(jorb, iorb, isit) = dcmplx(0.0D0, 0.0D0);
-          End if
+          ! if (nrx == 0 .and. nry == 0 .and. nrz == 0 .and. korb == lorb) then
+          !   ham_r(jorb, iorb, isit) = dcmplx(0.0D0, 0.0D0);
+          ! End if
         End Do
       End Do
       rnspac(1, isit) = nrx
@@ -152,40 +153,68 @@ Module param
     Use param
     ! Implicit Double Precision (A-H, O-Z)
     Implicit None
-    Integer nksum, kx, ky, iorb, jorb
+    Integer nksum, kx, ky, iorb, jorb, nk
     Real *8 wk(3), xk, yk, dkx, dky, eval(nwann)
-    Complex *16, Allocatable :: hk(:, :, :, :)
+    Complex *16, Allocatable :: hk(:, :, :)
     Complex *16 ham_work(nwann, nwann), hak(nwann, nwann)
     pi = dasin(1.0D0)*2.0D0
 
-    If (.Not. allocated(hk)) Allocate (hk(nwann,nwann,1:(nky+1),1:(nkx+1)))
+    nksum = 0
+    Do kx = 1, nkx + 1    
+        dkx = 4.0D0*pi/(3.0D0*a*nkx)
+        xk = -twopi/(3*a) + (kx - 1.0D0)*dkx
+        Do ky = 1, nky + 1
+            dky = twopi/(sqrt(3.0D0)*a*nky)
+            yk = (ky - 1)*dky
+            if ((xk - 0.0D0) < -1E-8) then
+                if ((yk + sqrt(3.0D0)*xk) >= -1E-8) then
+                    nksum = nksum + 1;
+                end if
+            else
+                if ((yk - sqrt(3.0D0)*xk) >= -1E-8) then
+                    nksum = nksum + 1;
+                end if
+            end if
+        end do
+    end do
+
+    If (.Not. allocated(hk)) Allocate (hk(nwann,nwann,nksum))
     Open (20, File='../data/HK.dat')
     Open (17, File='../data/kx+ky.dat')
-    nksum = 0
+    nk = 1
     Do kx = 1, nkx + 1
-      dkx = 6.0D0*pi/(3.0D0*a*nkx) !(2.0D0*pi/(3.0*a))/dble(nkx-1)
-      xk = -2.0D0*pi/(3.0D0*a) + (kx-1)*dkx !dble(kx-1)*dkx
+      dkx = 4.0D0*pi/(3.0D0*a*nkx)
+      xk = -twopi/(3*a) + (kx - 1.0D0)*dkx
       Do ky = 1, nky + 1
-        dky = (4.0D0*pi)/(sqrt(3.0D0)*a*nky)
-        yk = -(2.0D0*pi)/(sqrt(3.0D0)*a) + (ky-1)*dky
-        nksum = nksum + 1
+        dky = twopi/(sqrt(3.0D0)*a*nky)
+        yk = (ky - 1)*dky
+        if ((xk - 0.0D0) < -1E-8) then
+            if ((yk + sqrt(3.0D0)*xk) < -1.0E-8) cycle
+        else
+            if ((yk - sqrt(3.0D0)*xk) < -1.0E-8) cycle
+        end if
         wk(1) = xk
         wk(2) = yk
-        Write (17, '(2f12.6)') xk, yk
+        ! Write (17, '(2f12.6)') xk, yk
         wk(3) = 0.0D0
         Call cal_spectrum(wk, hak, ham_work, eval)
         Write (17, '(2f12.6)') xk, yk
         Do iorb = 1, nwann
           Do jorb = 1, nwann
-            hk(jorb, iorb, ky, kx) = hak(jorb, iorb)
-            Write (20, '(2f18.10)') hk(jorb, iorb, ky, kx)  
+            hk(jorb, iorb, nk) = hak(jorb, iorb)
+            if (iorb == jorb) then
+                Write (20, '(2f18.10)') hk(jorb, iorb, nk) - fermiLevel
+            else
+                Write (20, '(2f18.10)') hk(jorb, iorb, nk)
+            end if
           End Do
         End Do
+        nk = nk + 1
       End Do
       write(*, *) kx, '/', nkx + 1
     End Do
     Write (20, *) 'The-End!'
-    Write (*, *) 'total k points', nksum
+    Write (*, *) 'total k points',nksum
     Close (17)
     Close (20)
     ! Return
