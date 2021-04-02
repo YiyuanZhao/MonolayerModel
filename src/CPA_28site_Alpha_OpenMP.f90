@@ -22,31 +22,31 @@ implicit none
 integer,public,parameter::itermax=1000
 integer,public,parameter::Nsite=28
 integer,public,parameter::Nalpha=2
-real(dp),public,parameter::max_eps_SE=1.0d-4
-real(dp),public,parameter::max_eps_n=1.0d-5
+real(dp),public,parameter::max_eps_SE=1.0d-7
+real(dp),public,parameter::max_eps_Ef=1.0d-2
 real(dp),public,parameter::eta=1.0d-2
 integer,public,save::Nw
 integer,public,save::NK
 integer,public,save::iter
 integer,public,save::ifermi
 real(dp),public,save::Maxerror_SE
-real(dp),public,save::Maxerror_ne
+real(dp),public,save::Error_Ef
 real(dp),public,save::U
 real(dp),public,save::Delta1
 real(dp),public,save::Delta2
 real(dp),public,save::Delta3
-real(dp),public,save::Ef_Lattice
-real(dp),public,save::Ef_Impurity
 real(dp),public,save::E_max
 real(dp),public,save::E_min
+real(dp),public,save::Ef
+real(dp),public,save::Ef_half
+real(dp),public,save::Ef_max
+real(dp),public,save::Ef_min
 real(dp),public,save::domega
 real(dp),public,save::Tn0
 real(dp),public,save::Tnt
-real(dp),public,save,allocatable::error_ne(:)
 real(dp),public,save,allocatable::error_SE(:,:)
 real(dp),public,save,allocatable::DELTA(:)
-real(dp),public,save,allocatable::ne0(:)
-real(dp),public,save,allocatable::net(:)
+real(dp),public,save,allocatable::ne(:)
 real(dp),public,save,allocatable::DOS(:,:)
 real(dp),public,save,allocatable::TDOS(:)
 real(dp),public,save,allocatable::P_alpha(:,:)
@@ -68,25 +68,16 @@ use constant
 use para
 implicit none
 integer i
-integer j
 integer k
 integer i_site
 integer j_site
 integer i_alpha
-! Timer Settings
-real(kind=4)    :: t1,t2
 Integer :: t3,t4
-character(len=10)   :: time1,time2
-character(len=8)    :: thedate
-! End Timer Settings
 character(20)ch
-if(.not.allocated(ne0)) allocate(ne0(Nsite))
-if(.not.allocated(net)) allocate(net(Nsite))
+if(.not.allocated(ne)) allocate(ne(Nsite))
 if(.not.allocated(DELTA)) allocate(DELTA(Nsite))
-if(.not.allocated(error_ne)) allocate(error_ne(Nsite))
 do i_site=1,Nsite
-   ne0(i_site)=zero
-   error_ne(i_site)=one
+   ne(i_site)=zero
    DELTA(i_site)=zero
 end do
 Open(11,file="inputs.txt")
@@ -104,7 +95,7 @@ read(11,"(A)")ch
 read(11,*)Nw
 read(11,"(A)")ch
 do i_site=1,Nsite
-read(11,*)ne0(i_site)
+read(11,*)ne(i_site)
 end do
 close(11)
 open(12,file='CPA_process.txt')
@@ -115,7 +106,7 @@ write(12,*) "On-site potential of cluster3:",Delta3
 write(12,*) "Total energy mesh at the energy axis:",Nw
 write(12,*) "Total k mesh at the first Brillouin zone:",NK
 write(12,*) "Initial occupations of sites:"
-write(12,"(7f12.8)")ne0(:)
+write(12,"(7f12.8)")ne(:)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!---allocate the matrix---!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 if(.not.allocated(DOS)) allocate(DOS(Nsite,Nw))
 if(.not.allocated(TDOS)) allocate(TDOS(Nw))
@@ -183,16 +174,13 @@ end do
 E_max=16.0d0
 E_min=-13.0d0
 domega=(E_max-E_min)/DBLE(Nw-1)
-Ef_Lattice=U/2.0d0
-Ef_Impurity=U/2.0d0
 do i=1,Nw
    Omega(i)=E_min+DBLE(i-1)*domega+ione*eta
 end do
 !!!!!!!!!!!!!!!!!!!!!!!--guess the initial self-energy--!!!!!!!!!!!!!!!!!!!!!!
 do i=1,Nw
    do i_site=1,Nsite
-      SE_old(i_site,i)=SE_old(i_site,i)+ne0(i_site)*U
-      SE_old(i_site,i)=SE_old(i_site,i)-ione
+      SE_old(i_site,i)=SE_old(i_site,i)+ne(i_site)*U-ione
    end do
 end do
 !!!!!!!!!!!!!!!!!!!!--initialization of the probabilities--!!!!!!!!!!!!!!!!!!
@@ -202,39 +190,28 @@ do i_site=1,Nsite
    end do
 end do
 Maxerror_SE=one
-Maxerror_ne=one
 !!!!!!!!!!!!!!!!!!!!!!!!!!!--start SCF calculation--!!!!!!!!!!!!!!!!!!!!!!!!!!
 iter=0
 80 continue
-call date_and_time(thedate,time1)
 iter=iter+1
 write(12,*)"self-consistent steps",iter
+!!!!!!!!!!!!!!!!!!!!!!!!!!--Reinitial fermi surface--!!!!!!!!!!!!!!!!!!!!!!!!!
+Ef_max=U/2.0d0+1.0d0
+EF_min=U/2.0d0-1.0d0
+Ef_half=(Ef_max+EF_min)/2.0d0
+Ef=Ef_half
+Error_Ef=Ef_max-Ef_min
 !!!!!!!!!!!!!!!!!!!!!--initialization the greenfunctions--!!!!!!!!!!!!!!!!!!!!
+Search_Fermi:do
 do i=1,Nw
    TDOS(i)=zero
    do i_site=1,Nsite
-      Cavity_G(i_site,i)=czero
-      Impurity_G(i_site,i)=czero
-      DOS(i_site,i)=zero
       Lattice_G(i_site,i)=czero
-      do i_alpha=1,Nalpha
-         Impurity_G_alpha(i_alpha,i_site,i)=czero
-      end do
    end do
 end do
-!!!!!!!!!!!!!!!!!!!!--initialization of the final occupation--!!!!!!!!!!!!!!!!
-do i_site=1,Nsite
-      net(i_site)=zero
-      error_ne(i_site)=zero
-end do
-!!!!!!!!!!!!!!!!!!!!--The calculation of the probabilities--!!!!!!!!!!!!!!!!!!
-do i_site=1,Nsite
-   P_alpha(1,i_site)=ne0(i_site)
-   P_alpha(2,i_site)=1.0d0-ne0(i_site)
-end do
-!!!!!!!!!!!!!!!--calculate the effective medium greenfunctions--!!!!!!!!!!!!!
 call system_clock(t3)
-!$Omp parallel num_threads(12) default(shared) private(k, i_site, j_site, i)&
+!!!!!!!!!!!!!!!--calculate the effective medium greenfunctions--!!!!!!!!!!!!!
+!$Omp parallel num_threads(6) default(shared) private(k, i_site, j_site, i)&
 !$Omp firstprivate(Omega, SE_old, DELTA, HK, HK_k, INVHK_k)
 !$Omp do schedule(guided)
 do k=1,NK
@@ -245,11 +222,10 @@ do k=1,NK
    end do
    do i=1,Nw
       do i_site=1,Nsite
-         HK_k(i_site,i_site,k)=Omega(i)-HK(i_site,i_site,k)-SE_old(i_site,i)+Ef_Lattice-DELTA(i_site)
+         HK_k(i_site,i_site,k)=Omega(i)-HK(i_site,i_site,k)-SE_old(i_site,i)+Ef-DELTA(i_site)
       end do
-      
       call INVERT(Nsite,HK_k(:,:,k),INVHK_k(:,:,k))
-      do i_site=1,Nsite
+      do i_site=1,Nsite  
          Lattice_G(i_site,i)=Lattice_G(i_site,i)+1.0d0/(DBLE(NK))*INVHK_k(i_site,i_site,k)
       end do
    end do
@@ -257,20 +233,88 @@ end do
 !$Omp end parallel
 call system_clock(t4)
 write(*,*) (t4-t3)/1000
+!!!!!!!!!--<<<Calculating occupations according to fermisurface>>>--!!!!!!!!!!
+do i=1,Nw
+   do i_site=1,Nsite
+      TDOS(i)=TDOS(i)-(1.0d0/pi)*DIMAG(Lattice_G(i_site,i))
+   end do
+end do
+Tn0=zero
+Tnt=zero
+do i=2,Nw
+   Tn0=Tn0+0.5d0*(TDOS(i)+TDOS(i-1))*domega
+   if(DREAL(Omega(i)).LT.0.0d0)then
+      Tnt=Tnt+0.5d0*(TDOS(i)+TDOS(i-1))*domega
+   else if(DREAL(Omega(i))*DREAL(Omega(i-1))<0.0d0)then
+      Tnt=Tnt+0.25d0*(TDOS(i)+TDOS(i-1))*domega
+   end if
+end do
+!!!!!!!!!!!!!!---The dichotomy method to search fermi level---!!!!!!!!!!!!!!!
+write(*,*) Error_Ef, Ef_max, Ef_min
+if(Error_Ef.LT.max_eps_Ef)then
+   Exit Search_Fermi
+else if(Tnt.LT.Tn0/2.0d0)then
+   Error_Ef=Ef_max-Ef_min
+   Ef_min=Ef_half
+   Ef_half=(Ef_min+Ef_max)/2.0d0
+   Ef=Ef_half
+else if(Tnt.GT.Tn0/2.0d0)then
+   Error_Ef=Ef_max-Ef_min
+   Ef_max=Ef_half
+   Ef_half=(Ef_min+Ef_max)/2.0d0
+   Ef=Ef_half
+end if
+end do Search_Fermi
+!!!!!!!!!!!!!!!!!!!!--initialization of the final occupation--!!!!!!!!!!!!!!!!
+do i_site=1,Nsite
+   ne(i_site)=zero
+end do
+write(*, *)iter,Ef
+do i=1,Nw
+   do i_site=1,Nsite
+      Cavity_G(i_site,i)=czero
+      Impurity_G(i_site,i)=czero
+      DOS(i_site,i)=zero
+      do i_alpha=1,Nalpha
+         Impurity_G_alpha(i_alpha,i_site,i)=czero
+      end do
+   end do
+end do
+!!!!!!!!!!!!!!!!!!--<<<Calculating atom-dependent dos>>>--!!!!!!!!!!!!!!!!!!!!
+do i=1,Nw
+   do i_site=1,Nsite
+      DOS(i_site,i)=DOS(i_site,i)-(1.0d0/pi)*DIMAG(Lattice_G(i_site,i))
+   end do
+end do
+!!!!!!!!!!!!!!!!!--<<<Calculating correlation function>>>--!!!!!!!!!!!!!!!!!!!
+do i=2,Nw
+   do i_site=1,Nsite
+      if(DREAL(Omega(i)).LT.0.0d0)then
+        ne(i_site)=ne(i_site)+0.5d0*(TDOS(i)+TDOS(i-1))*domega
+      else if(DREAL(Omega(i))*DREAL(Omega(i-1))<0.0d0)then
+        ne(i_site)=ne(i_site)+0.25d0*(TDOS(i)+TDOS(i-1))*domega
+      end if 
+   end do
+end do
 !!!!!!!!!!!!!!!!!!!!--construct the cavity greenfunctions--!!!!!!!!!!!!!!!!!!!
 do i=1,Nw
    do i_site=1,Nsite
-      Cavity_G(i_site,i)=1.0d0/((1.0d0/Lattice_G(i_site,i)+SE_old(i_site,i)))
+      Cavity_G(i_site,i)=1.0d0/(1.0d0/Lattice_G(i_site,i)+SE_old(i_site,i))
    end do
+end do
+!!!!!!!!!!!!!!!!!!!!--The calculation of the probabilities--!!!!!!!!!!!!!!!!!!
+do i_site=1,Nsite
+   P_alpha(1,i_site)=ne(i_site)
+   P_alpha(2,i_site)=1.0d0-ne(i_site)
 end do
 !!!!!!!!!!!!!!!!!!!--calculate the impurity green function--!!!!!!!!!!!!!!!!!!
 do i=1,Nw
    do i_site=1,Nsite
       do i_alpha=1,Nalpha
          if(i_alpha==1)then
-           Impurity_G_alpha(i_alpha,i_site,i)=1.0d0/(1.0d0/Cavity_G(i_site,i)-U/2.0d0-Ef_Lattice+Ef_Impurity)
+           Impurity_G_alpha(i_alpha,i_site,i)=1.0d0/(1.0d0/Cavity_G(i_site,i)-U-DELTA(i_site))
          else
-           Impurity_G_alpha(i_alpha,i_site,i)=1.0d0/(1.0d0/Cavity_G(i_site,i)+U/2.0d0-Ef_Lattice+Ef_Impurity)
+           Impurity_G_alpha(i_alpha,i_site,i)=1.0d0/(1.0d0/Cavity_G(i_site,i)-0.0d0-DELTA(i_site))
          end if
       end do
       do i_alpha=1,Nalpha     
@@ -278,120 +322,18 @@ do i=1,Nw
       end do
    end do
 end do
-!open(13,file='Test.txt')
-!do i=1,Nw
-!   write(13,"(4f10.6)")Impurity_G(1,i),Impurity_G(28,i)
-!end do
-!close(13)
-!stop
-!!!!!!!!!!!!--calculate the Ef_lattice from lattice model--!!!!!!!!!!!!!
-do i=1,Nw
-   do i_site=1,Nsite
-      DOS(i_site,i)=DOS(i_site,i)-(1.0d0/pi)*AIMAG(Lattice_G(i_site,i))
-   end do
-end do
-!!!!!!!!!!!--<<<Calculate the fermi surface of Lattice model>>>--!!!!!!!!!!
-Tn0=zero
-Tnt=zero
-do i=2,Nw
-   do i_site=1,Nsite
-        Tn0=Tn0+0.5d0*(DOS(i_site,i)+DOS(i_site,i-1))*domega
-   end do     
-end do
-ifermi=1
-do i=2,Nw
-   if(Tnt.LT.Tn0/2.0d0)then
-     ifermi=ifermi+1
-     do i_site=1,Nsite
-        Tnt=Tnt+0.5d0*(DOS(i_site,i)+DOS(i_site,i-1))*domega
-     end do
-   else  
-     do i_site=1,Nsite
-        Tnt=Tnt-0.25d0*(DOS(i_site,ifermi)+DOS(i_site,ifermi-1))*domega
-     end do
-     goto 60
-   end if
-end do
-60 continue
-Ef_lattice=REAL(omega(ifermi)+omega(ifermi-1))/2.0d0
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!--calculate the new self-energy according to Dyson EQ--!!!!!!!!!!!
-!!!!!!!!!!!!!!--calculate the Ef_impurity from impurity model--!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-do i=1,Nw
-   TDOS(i)=zero
-   do i_site=1,Nsite
-      DOS(i_site,i)=zero
-   end do
-end do
 do i=1,Nw
    do i_site=1,Nsite
-      SE_new(i_site,i)=1.0d0/(Cavity_G(i_site,i))-1.0d0/(Impurity_G(i_site,i))+Ef_Lattice-Ef_Impurity
-      DOS(i_site,i)=DOS(i_site,i)-(1.0d0/pi)*AIMAG(Impurity_G(i_site,i))
+      SE_new(i_site,i)=1.0d0/(Cavity_G(i_site,i))-1.0d0/(Impurity_G(i_site,i))
    end do
 end do
-!!!!!!!!!!!!!!!!--<<<Calculating fermi surface>>>--!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!--<<<Calculating correlation function>>>--!!!!!!!!!!!!!
-Tn0=zero
-Tnt=zero
-do i=2,Nw
-   do i_site=1,Nsite
-        Tn0=Tn0+0.5d0*(DOS(i_site,i)+DOS(i_site,i-1))*domega
-   end do     
-end do
-ifermi=1
-do i=2,Nw
-   if(Tnt.LT.Tn0/2.0d0)then
-     ifermi=ifermi+1
-     do i_site=1,Nsite
-        Tnt=Tnt+0.5d0*(DOS(i_site,i)+DOS(i_site,i-1))*domega
-        net(i_site)=net(i_site)+0.5d0*(DOS(i_site,i)+DOS(i_site,i-1))*domega
-     end do
-   else  
-      do i_site=1,Nsite
-         Tnt=Tnt-0.25d0*(DOS(i_site,ifermi)+DOS(i_site,ifermi-1))*domega
-         net(i_site)=net(i_site)-0.25d0*(DOS(i_site,ifermi)+DOS(i_site,ifermi-1))*domega
-      end do
-      write(12,*)"Total half occupation:",Tnt
-     goto 81
-   end if
-end do
-81 continue
-open(13,file='Test1.txt')
-if(iter==3)then
-   do i=1,Nw
-      write(13,"(3f10.6)")Real(omega(i)),DOS(1,i),DOS(17,i)
-   end do
-end if
-close(13)
-open(13,file='Test2.txt')
-if(iter==2)then
-   do i=1,Nw
-      write(13,"(3f10.6)")Real(omega(i)),DOS(1,i),DOS(17,i)
-   end do
-end if
-close(13)
-write(12,*)"Total occupation:",Tn0
-write(12,*)"Total half occupation:",Tnt
-! Ef=U/2.0d0+REAL(omega(ifermi)+omega(ifermi-1))/2.0d0
-Ef_impurity=REAL(omega(ifermi)+omega(ifermi-1))/2.0d0
-write(*, *) Ef_impurity,Ef_lattice
-write(12,*)"=========================================================="
-write(12,*)"Initial occupations:"
-write(12,"(7f12.6)")ne0(:)
-write(12,*)"Final occupations:"
-write(12,"(7f12.6)")net(:)
-!!!!!!!!--<<<Comparing initial and final occupation numbers>>>--!!!!!!!!
-do i_site=1,Nsite
-   error_ne(i_site)=ABS(ne0(i_site)-net(i_site))
-end do
-do i_site=2,Nsite
-Maxerror_ne=MAX(error_ne(i_site),error_ne(i_site-1))
-end do
+write(12,*)"Total occupation:",Tn0,"Total half occupation:",Tnt
+write(12,*)"The dichotomy method determined Fermi surface:", Ef
 !!!!!!!!!--<<<Comparing initial and final self-energy>>>--!!!!!!!!!!
 do i=1,Nw
    do i_site=1,Nsite
-      error_SE(i_site,i)=ABS(SE_new(i_site,i)-SE_old(i_site,i))
+      error_SE(i_site,i)=CDABS(SE_new(i_site,i)-SE_old(i_site,i))
    end do
 end do
 Maxerror_SE=error_SE(1,1)
@@ -400,26 +342,14 @@ do i=1,Nw
       Maxerror_SE=MAX(Maxerror_SE,error_SE(i_site,i))
    end do
 end do
-
-call date_and_time(thedate,time2)
-read(time1,*) t1
-read(time2,*) t2
-write(*,*)"adjusting energy of G_0imp and G_0Lattice=",Ef_impurity-Ef_lattice,"Ef_impurity=",Ef_impurity,"Ef_lattice=",Ef_lattice
-write(12,*)"Maximal occupation numbers error:",Maxerror_ne
 write(12,*)"Maximal self-energy error:",Maxerror_SE
-write(12,*)"time:", t2-t1
 write(12,*)"=========================================================="
 write(12,*)
-if((Maxerror_ne.gt.max_eps_n).OR.(Maxerror_SE.gt.max_eps_SE))then
+if(Maxerror_SE.gt.max_eps_SE)then
   do i=1,Nw
      do i_site=1,Nsite
         SE_old(i_site,i)=SE_new(i_site,i)
      end do
-  end do
-
-  do i_site=1,Nsite
-   !   ne0(i_site)=0.5d0*ne0(i_site)+0.5d0*net(i_site)
-   ne0(i_site)=net(i_site)
   end do
   if(iter.gt.itermax)then
     write(10,*)"convergence is not arrived."
@@ -430,6 +360,9 @@ else
   write(10,*)"convergence has arrived."
 end if
 82  continue
+write(12,*)"The occupations of different sites:"
+write(12,"(7f10.6)")ne(:)
+write(12,*)"========================================================================"
 !!!!!!!!!!!!!!---re-calculate DOS of different sites and TDOS---!!!!!!!!!!!!!!
 do i=1,Nw
    TDOS(i)=zero
@@ -439,23 +372,102 @@ do i=1,Nw
 end do
 do i=1,Nw
    do i_site=1,Nsite
-      DOS(i_site,i)=DOS(i_site,i)-(1.0d0/pi)*AIMAG(Impurity_G(i_site,i))
+      DOS(i_site,i)=DOS(i_site,i)-(1.0d0/pi)*DIMAG(Lattice_G(i_site,i))
       TDOS(i)=TDOS(i)+DOS(i_site,i)
    end do
 end do
 open(14,file='TDOS.txt')
 do i=1,Nw
-   write(14,"(2f14.10)")REAL(omega(i)),TDOS(i)
+   write(14,"(2f14.10)")DREAL(omega(i))-Ef,TDOS(i)
 end do 
 close(14)
 open(15,file='ATOM_DOS.txt')
 do i=1,Nw
    write(14,"(29f10.6)")REAL(omega(i)),DOS(:,i)
 end do
+
 end
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!------Subroutine------!!!!!!!!!!!!!!!!!!!!!
-!>>> to calculat the inverse of the matrix for complex matrix !
+! ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! ! !!!!!!!!!!!!!!!!!!!!------Subroutine------!!!!!!!!!!!!!!!!!!!!!
+! ! !>>> to calculat the inverse of the matrix for complex matrix !
+! !========+=========+=========+=========+=========+=========+=========+=$
+!       subroutine INVERTs(m,c,cinv)
+!       implicit complex*16(a-h,o-z)
+!       parameter (isafe=1)
+!       complex*16 a,c,z,ad,bd,zb,b,duma,dumb,one,zero
+!       dimension a(m,m),b(m,m),c(m,m),z(m),ad(m),bd(m)
+!       dimension cinv(m,m),binv(m,m)
+!       IF(m.EQ.1)THEN
+!       cinv=DCMPLX(1.0D0,0.0D0)/c
+!       GOTO 600
+!       ENDIF
+!          do i=1,m
+!          do j=1,m
+!             binv(i,j)=c(i,j)
+!          end do
+!       end do
+!       zero=0.0
+!       one=1.0
+!       do 10 i=1,m
+!       do 20 j=1,m
+!       b(i,j)=zero
+!       a(i,j)=c(i,j)
+! 20    continue
+!       b(i,i)=one
+! 10    continue
+!       do 110 i=1,m
+!       if(isafe.eq.0) go to 100
+!       amax=0.0d0
+!       do 290 k=i,m
+!       if(abs(a(k,i)).lt.real(amax)) go to 290
+!       amax=abs(a(k,i))
+!       iswap=k
+! 290   continue
+!       if(iswap.eq.i) go to 280
+!       do 300 l=1,m
+!       duma=a(iswap,l)
+!       dumb=b(iswap,l)
+!       a(iswap,l)=a(i,l)
+!       b(iswap,l)=b(i,l)
+!       a(i,l)=duma
+!       b(i,l)=dumb
+! 300   continue
+! 280   continue
+! 100   continue
+!       do 990 j=1,m
+!       z(j)=a(j,i)/a(i,i)
+! 990   continue
+!       z(i)=zero
+!       do 150 k=1,m
+!       ad(k)=a(i,k)
+!       bd(k)=b(i,k)
+! 150   continue
+!       do 170 k=1,m
+!       do 180 j=1,m
+!       a(j,k)=a(j,k)-z(j)*ad(k)
+!       b(j,k)=b(j,k)-z(j)*bd(k)
+! 180   continue
+! 170   continue
+! 110   continue
+!       do 200 k=1,m
+!       zb=one/a(k,k)
+!       do 210 ka=1,m
+!       b(k,ka)=b(k,ka)*zb
+! 210   continue
+! 200   continue
+!       do 310 i=1,m
+!       do 320 j=1,m
+!       cinv(i,j)=b(i,j)
+! 320   continue
+! 310   continue
+!       do i=1,m
+!       do j=1,m
+!       c(i,j)=binv(i,j)
+!       enddo
+!       enddo 
+! 600   CONTINUE 
+! return
+! end subroutine inverts
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 SUBROUTINE INVERT(N,A,C)
 IMPLICIT DOUBLE PRECISION(A-H,O-Z)

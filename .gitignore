@@ -1,3 +1,6 @@
 bin/
 data/
 src/*.mod
+src/*.txt
+src/*.dat
+src/*.mod
