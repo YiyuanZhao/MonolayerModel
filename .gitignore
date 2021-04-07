@@ -1,5 +1,6 @@
 bin/
 data/
+test/
 src/*.mod
 src/*.txt
 src/*.dat
