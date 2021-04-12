@@ -17,7 +17,7 @@ Module param
   ! band structure in full brillouin zone !!!
   !	integer   NKX,NKY,NKZ
     Integer nkx, nky, dnky, tnky
-    Parameter (nkx=34, nky=40)
+    Parameter (nkx=170, nky=200)
     ! Parameter (nkx=1732, nky=2000)
     ! Parameter (nkx=601, nky=300, dnky=601, tnky=dnky+nky)
     Real *8 pi, twopi
